@@ -266,24 +266,6 @@ export const AdminDashboard = () => {
             Berikut ringkasan operasional Trigara hari ini.
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          {seedMsg && (
-            <span className="flex items-center gap-1.5 text-xs font-bold text-[#347B5A] bg-[#EAF4EF] px-3 py-1.5 rounded-full">
-              <CheckCircle size={12} /> {seedMsg}
-            </span>
-          )}
-          {orders.length === 0 && (
-            <button
-              onClick={handleSeed}
-              disabled={seeding}
-              className="flex items-center gap-2 bg-[#607d6e] text-white font-bold px-4 py-2.5 rounded-xl hover:bg-[#526b5e] transition-all shadow-lg shadow-[#607d6e]/20 disabled:opacity-50 text-sm"
-            >
-              <RefreshCw size={14} className={seeding ? 'animate-spin' : ''} />
-              {seeding ? 'Menyuntik...' : 'Seed Data Demo'}
-            </button>
-          )}
-        </div>
       </div>
 
       {/* ── Main 2-Column Layout ──────────────────────────── */}

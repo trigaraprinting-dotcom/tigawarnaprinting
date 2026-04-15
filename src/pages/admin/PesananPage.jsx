@@ -75,17 +75,6 @@ export const PesananPage = () => {
           <h2 className="text-2xl font-extrabold text-[#1A1D1B]">Daftar Pesanan</h2>
           <p className="text-[#646A66] font-medium mt-1">{filtered.length} pesanan ditemukan</p>
         </div>
-        <div className="flex items-center gap-3">
-          {seedMsg && <span className="text-sm font-semibold text-[#347B5A] bg-[#EAF4EF] px-3 py-2 rounded-xl">{seedMsg}</span>}
-          <button
-            onClick={handleSeed}
-            disabled={seeding}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-[#646A66] text-sm font-bold px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
-          >
-            <RefreshCw size={15} className={seeding ? 'animate-spin' : ''} />
-            Seed Data
-          </button>
-        </div>
       </div>
 
       {/* Filters */}
@@ -123,9 +112,7 @@ export const PesananPage = () => {
           </div>
         ) : paginated.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64">
-            <Inbox size={48} className="text-slate-200 mb-4" />
             <p className="font-bold text-lg text-[#1A1D1B]">Belum ada pesanan</p>
-            <p className="text-sm mt-1 text-[#646A66]">Coba klik "Seed Data" untuk mengisi data demo</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -41,8 +41,19 @@ export const AuthProvider = ({ children }) => {
               newStage = 'cetak';
             }
 
-            if (newRole) {
-              await setDoc(userRef, { email, role: newRole, assigned_stage: newStage, created_at: new Date() });
+            if (!userDoc.exists()) {
+              await setDoc(userRef, { 
+                email, 
+                role: newRole || '', 
+                assigned_stage: newStage || null, 
+                created_at: new Date(),
+                name: firebaseUser.displayName || 'Pengguna Baru'
+              });
+              setRole(newRole);
+              setAssignedStage(newStage);
+              console.log(`Created new user record for ${email}`);
+            } else if (newRole) {
+              await setDoc(userRef, { role: newRole, assigned_stage: newStage }, { merge: true });
               setRole(newRole);
               setAssignedStage(newStage);
               console.log(`Auto-provisioned ${email} as ${newRole}`);

@@ -76,12 +76,6 @@ export const InputPesanan = () => {
   return (
     <div className="w-full max-w-[1400px] mx-auto mb-10 pb-20 md:pb-0 space-y-6">
       <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate('/cs/dashboard')}
-          className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#646A66] hover:bg-slate-50 hover:text-[#1A1D1B] shadow-sm transition-all"
-        >
-          <ChevronLeft size={20} />
-        </button>
         <div>
           <h2 className="text-2xl font-extrabold text-[#1A1D1B]">Input Pesanan Baru</h2>
           <p className="text-[#646A66] font-medium mt-1">Isi formulir detail pesanan klien</p>
