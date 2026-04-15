@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { listenToOrders, createOrder, updateOrderStatus } from '../firebase/firestore';
+import { listenToOrders, createOrder, updateOrderStatus, logActivity } from '../firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
 
 export const useOrdersSnapshot = (filters = {}) => {
   const [orders, setOrders] = useState([]);
@@ -33,11 +34,13 @@ export const useOrdersSnapshot = (filters = {}) => {
 export const useOrderActions = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const { user, role } = useAuth();
 
   const addOrder = async (orderData) => {
     setIsUpdating(true);
     try {
       const id = await createOrder(orderData);
+      await logActivity('CREATE_ORDER', `Membuat pesanan baru: ${orderData.product_name} (${orderData.quantity} ${orderData.product_unit}) untuk ${orderData.customer_name}`, { email: user?.email, role });
       setIsUpdating(false);
       return id;
     } catch (err) {
@@ -51,6 +54,7 @@ export const useOrderActions = () => {
     setIsUpdating(true);
     try {
       await updateOrderStatus(orderId, newStatus, additionalData);
+      await logActivity('UPDATE_STATUS', `Mengubah status pesanan menjadi: ${newStatus.replace(/_/g, ' ').toUpperCase()}`, { email: user?.email, role });
       setIsUpdating(false);
       return true;
     } catch (err) {

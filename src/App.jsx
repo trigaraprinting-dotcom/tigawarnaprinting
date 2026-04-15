@@ -11,13 +11,16 @@ import { PesananPage }     from './pages/admin/PesananPage';
 import { UsersPage }       from './pages/admin/UsersPage';
 import { KategoriPage }    from './pages/admin/KategoriPage';
 import { LaporanPage }     from './pages/admin/LaporanPage';
+import { AktivitasPage }   from './pages/admin/AktivitasPage';
 import { PengaturanPage }  from './pages/admin/PengaturanPage';
 
 // Role-specific pages
 import { CSDashboard }        from './pages/cs/CSDashboard';
+import { InputPesanan }       from './pages/cs/InputPesanan';
 import { ValidasiDashboard }  from './pages/validasi/ValidasiDashboard';
 import { KasirDashboard }     from './pages/kasir/KasirDashboard';
 import { ProduksiDashboard }  from './pages/produksi/ProduksiDashboard';
+import { ProsesProduksi }     from './pages/produksi/ProsesProduksi';
 
 // Role-based redirect at root
 const RoleRedirect = () => {
@@ -56,12 +59,14 @@ function App() {
                 <Route path="users"      element={<UsersPage />} />
                 <Route path="kategori"   element={<KategoriPage />} />
                 <Route path="laporan"    element={<LaporanPage />} />
+                <Route path="aktivitas"  element={<AktivitasPage />} />
                 <Route path="pengaturan" element={<PengaturanPage />} />
               </Route>
 
               {/* ── Customer Service ── */}
               <Route path="cs" element={<ProtectedRoute allowedRoles={['customer_service']} />}>
                 <Route path="dashboard" element={<CSDashboard />} />
+                <Route path="pesanan/tambah" element={<InputPesanan />} />
                 <Route path="pesanan"   element={<PesananPage />} />
               </Route>
 
@@ -73,11 +78,13 @@ function App() {
               {/* ── Kasir ── */}
               <Route path="kasir" element={<ProtectedRoute allowedRoles={['kasir', 'admin']} />}>
                 <Route path="dashboard" element={<KasirDashboard />} />
+                <Route path="pesanan"   element={<PesananPage />} />
               </Route>
 
               {/* ── Produksi ── */}
               <Route path="produksi" element={<ProtectedRoute allowedRoles={['petugas_produksi', 'admin']} />}>
                 <Route path="dashboard" element={<ProduksiDashboard />} />
+                <Route path="proses"    element={<ProsesProduksi />} />
                 <Route path="kategori"  element={<KategoriPage />} />
               </Route>
             </Route>

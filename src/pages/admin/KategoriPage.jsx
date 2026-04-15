@@ -88,9 +88,9 @@ export const KategoriPage = () => {
   const visibleCats = cats.filter(c => !c.deleted);
 
   return (
-    <div className="w-full max-w-[1400px] mb-10 pb-20 md:pb-0 space-y-6">
+    <div className="w-full max-w-[1400px] mb-10 pb-2 md:pb-0 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h2 className="text-2xl font-extrabold text-[#1A1D1B]">Kategori Produksi</h2>
           <p className="text-[#646A66] font-medium mt-1">{visibleCats.length} kategori tersedia</p>
@@ -110,15 +110,6 @@ export const KategoriPage = () => {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Notice */}
-      <div className="bg-[#EAF4EF] border border-[#607d6e]/20 rounded-2xl p-4 flex items-start gap-3">
-        <ShieldOff size={20} className="text-[#607d6e] shrink-0 mt-0.5" />
-        <p className="text-sm font-semibold text-[#1A1D1B]">
-          Kategori berlatar gelap adalah kategori default sistem yang tidak dapat dihapus.
-          Admin dan Petugas Produksi dapat menambah kategori baru.
-        </p>
       </div>
 
       {/* Grid */}

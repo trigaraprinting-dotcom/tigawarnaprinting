@@ -10,6 +10,7 @@ export const ROLES = {
 };
 
 export const ORDER_STATUS = {
+  AWAITING_DP: 'awaiting_dp',
   PENDING: 'pending',
   VALIDATED: 'validated',
   REJECTED: 'rejected',
@@ -17,14 +18,15 @@ export const ORDER_STATUS = {
   CETAK: 'cetak',
   FINISHING: 'finishing',
   PACKING: 'packing',
+  READY: 'ready',
   DONE: 'done'
 };
 
 export const createOrder = async (orderData) => {
   try {
     const docRef = await addDoc(collection(db, 'orders'), {
+      status: orderData.status || ORDER_STATUS.PENDING,
       ...orderData,
-      status: ORDER_STATUS.PENDING,
       created_at: serverTimestamp(),
       updated_at: serverTimestamp()
     });
@@ -34,6 +36,21 @@ export const createOrder = async (orderData) => {
     throw error;
   }
 };
+
+export const logActivity = async (action, details, user) => {
+  try {
+    await addDoc(collection(db, 'activity_logs'), {
+      action,
+      details,
+      user_email: user?.email || 'System',
+      user_role: user?.role || 'Unknown',
+      created_at: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Error logging activity:", error);
+  }
+};
+
 
 export const updateOrderStatus = async (orderId, newStatus, additionalData = {}) => {
   try {

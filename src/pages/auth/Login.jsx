@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../../firebase/auth';
+import { Eye, EyeOff } from 'lucide-react';
 
 export const Login = () => {
   // Pre-filled admin credentials
   const [email, setEmail] = useState('admin@trigara.com');
   const [password, setPassword] = useState('admin123');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -72,15 +74,22 @@ export const Login = () => {
                   required 
                 />
               </div>
-              <div>
+              <div className="relative">
                 <input 
-                  type="password" 
+                  type={showPassword ? 'text' : 'password'} 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-5 py-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#7B3DF6]/20 focus:border-[#7B3DF6] outline-none transition-all text-[15px] font-medium text-slate-700 placeholder-slate-400 bg-white tracking-widest"
+                  className="w-full px-5 py-4 pr-12 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#7B3DF6]/20 focus:border-[#7B3DF6] outline-none transition-all text-[15px] font-medium text-slate-700 placeholder-slate-400 bg-white tracking-widest"
                   placeholder="••••••••"
                   required 
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
 
               <div className="flex items-center justify-between text-[13px] pt-1">

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   LayoutDashboard, ListOrdered, Users, FileText, Settings, 
   ClipboardCheck, Receipt, Printer, LogOut, Hexagon,
-  ChevronRight, ChevronLeft, Tags
+  ChevronRight, ChevronLeft, Tags, Activity, PlusCircle
 } from 'lucide-react';
 import clsx from 'clsx';
 import { logout } from '../firebase/auth';
@@ -20,20 +20,24 @@ export const Sidebar = () => {
       { path: '/admin/users',        icon: Users,           label: 'Manajemen'   },
       { path: '/admin/kategori',     icon: Tags,            label: 'Kategori'    },
       { path: '/admin/laporan',      icon: FileText,        label: 'Laporan'     },
+      { path: '/admin/aktivitas',    icon: Activity,        label: 'Aktivitas'   },
       { path: '/admin/pengaturan',   icon: Settings,        label: 'Pengaturan'  },
     ],
     customer_service: [
       { path: '/cs/dashboard',       icon: LayoutDashboard, label: 'Dashboard'   },
+      { path: '/cs/pesanan/tambah',  icon: PlusCircle,      label: 'Input Order' },
       { path: '/cs/pesanan',         icon: ListOrdered,     label: 'Pesanan'     },
     ],
     petugas_validasi: [
       { path: '/validasi/dashboard', icon: ClipboardCheck,  label: 'Validasi'    },
     ],
     kasir: [
-      { path: '/kasir/dashboard',    icon: Receipt,         label: 'Kasir'       },
+      { path: '/kasir/dashboard',    icon: Receipt,         label: 'Dashboard'   },
+      { path: '/kasir/pesanan',      icon: ListOrdered,     label: 'Pesanan'     },
     ],
     petugas_produksi: [
-      { path: '/produksi/dashboard', icon: Printer,         label: 'Dashboard'   },
+      { path: '/produksi/dashboard', icon: LayoutDashboard, label: 'Dashboard'   },
+      { path: '/produksi/proses',    icon: Printer,         label: 'Produksi'    },
       { path: '/produksi/kategori',  icon: Tags,            label: 'Kategori'    },
     ],
   };
@@ -83,6 +87,7 @@ export const Sidebar = () => {
               <NavLink
                 key={item.path}
                 to={item.path}
+                end
                 title={!expanded ? item.label : undefined}
                 className={({ isActive }) => clsx(
                   'flex items-center transition-all duration-300 outline-none group',
@@ -146,6 +151,7 @@ export const Sidebar = () => {
             <NavLink
               key={item.path}
               to={item.path}
+              end
               className={({ isActive }) => clsx(
                 'flex-1 h-full flex flex-col items-center justify-center transition-all',
                 isActive ? 'text-[#1A1D1B]' : 'text-slate-400'

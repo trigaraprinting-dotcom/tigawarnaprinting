@@ -1,12 +1,14 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useOrdersSnapshot } from '../../hooks/useOrders';
 import { ORDER_STATUS } from '../../firebase/firestore';
+import { db } from '../../firebase/firebaseConfig';
+import { collection, query, orderBy, onSnapshot, limit } from 'firebase/firestore';
 import { StatusBadge } from '../../components/StatusBadge';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { FileDown, Printer } from 'lucide-react';
+import { FileDown, Printer, User, CheckCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -24,6 +26,38 @@ const formatDate = (ts) => {
 export const LaporanPage = () => {
   const { orders, loading } = useOrdersSnapshot({});
   const tableRef = useRef();
+
+  const [logs, setLogs] = useState([]);
+  useEffect(() => {
+    const q = query(collection(db, 'activity_logs'), orderBy('created_at', 'desc'), limit(500));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return unsubscribe;
+  }, []);
+
+  const workerStats = useMemo(() => {
+    const statsMap = {};
+    logs.forEach(log => {
+      const email = log.user_email || 'System';
+      if (!statsMap[email]) {
+        statsMap[email] = {
+          email,
+          role: log.user_role || 'Unknown',
+          totalActivities: 0,
+          createdOrders: 0,
+          statusUpdates: 0,
+          lastActive: log.created_at
+        };
+      }
+      statsMap[email].totalActivities += 1;
+      
+      if (log.action === 'CREATE_ORDER') statsMap[email].createdOrders += 1;
+      if (log.action === 'UPDATE_STATUS') statsMap[email].statusUpdates += 1;
+    });
+
+    return Object.values(statsMap).sort((a, b) => b.totalActivities - a.totalActivities);
+  }, [logs]);
 
   const stats = useMemo(() => {
     // Monthly omzet
@@ -196,29 +230,67 @@ export const LaporanPage = () => {
         </div>
       </div>
 
-      {/* Top Clients */}
-      <div className="bg-white p-6 rounded-[2rem] shadow-[0_4px_20px_rgb(0,0,0,0.04)]">
-        <h3 className="text-lg font-extrabold text-[#1A1D1B] mb-6">Top 5 Klien Terbanyak</h3>
-        <div className="space-y-4">
-          {stats.topClients.length === 0 ? (
-            <p className="text-[#646A66] font-semibold text-center py-8">Belum ada data klien</p>
-          ) : stats.topClients.map((client, i) => (
-            <div key={client.name} className="flex items-center gap-4">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-extrabold text-xs shrink-0 ${i === 0 ? 'bg-[#607d6e]' : 'bg-slate-300'}`}>{i + 1}</div>
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <p className="font-bold text-sm text-[#1A1D1B]">{client.name}</p>
-                  <p className="text-xs font-extrabold text-[#607d6e]">{client.count} pesanan</p>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div
-                    className="bg-[#607d6e] h-2 rounded-full transition-all duration-700"
-                    style={{ width: `${(client.count / (stats.topClients[0]?.count || 1)) * 100}%` }}
-                  />
+      {/* Lower Grids: Top Client & Leaderboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-[2rem] shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-lg transition-shadow">
+          <h3 className="text-lg font-extrabold text-[#1A1D1B] mb-6">Top 5 Klien Terbanyak</h3>
+          <div className="space-y-4">
+            {stats.topClients.length === 0 ? (
+              <p className="text-[#646A66] font-semibold text-center py-8">Belum ada data klien</p>
+            ) : stats.topClients.map((client, i) => (
+              <div key={client.name} className="flex items-center gap-4 group">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-extrabold text-sm shrink-0 transition-all group-hover:scale-110 ${i === 0 ? 'bg-[#607d6e] shadow-lg shadow-[#607d6e]/30' : 'bg-slate-200 text-slate-500'}`}>{i + 1}</div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <p className="font-bold text-[15px] text-[#1A1D1B] group-hover:text-[#607d6e] transition-colors">{client.name}</p>
+                    <p className="text-xs font-extrabold text-[#646A66] bg-slate-100 px-2.5 py-1 rounded-md">{client.count} pesanan</p>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-[#607d6e] to-[#8dafa0] h-full rounded-full transition-all duration-700"
+                      style={{ width: `${(client.count / (stats.topClients[0]?.count || 1)) * 100}%` }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-[2rem] shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-lg transition-shadow flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-extrabold text-[#1A1D1B]">Kinerja Pekerja (Leaderboard)</h3>
+            <span className="text-xs font-bold text-[#347B5A] bg-[#EAF4EF] px-3 py-1 rounded-full">Top Aktif</span>
+          </div>
+          
+          <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[340px]">
+            {workerStats.length === 0 ? (
+              <p className="text-[#646A66] font-semibold text-center py-8">Belum ada data pekerja</p>
+            ) : workerStats.map((stat, i) => (
+              <div key={stat.email} className="flex items-center gap-4 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm shrink-0 ${i === 0 ? 'bg-[#C29656]/20 text-[#C29656]' : i === 1 ? 'bg-slate-200 text-slate-600' : i === 2 ? 'bg-amber-700/10 text-amber-700' : 'text-slate-400'}`}>
+                  #{i + 1}
+                </div>
+                <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm">
+                  <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${stat.email}`} alt="" className="w-full h-full object-cover bg-amber-50" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-extrabold text-[14px] text-[#1A1D1B] truncate">{stat.email.split('@')[0]}</p>
+                  <p className="text-[10px] font-bold text-[#607d6e] uppercase tracking-wider">{stat.role.replace(/_/g, ' ')}</p>
+                </div>
+                <div className="flex gap-2 text-right">
+                   <div className="bg-white px-2 py-1.5 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center min-w-[50px]">
+                      <User size={12} className="text-[#646A66] mb-0.5" />
+                      <span className="font-black text-[13px] leading-none">{stat.createdOrders}</span>
+                   </div>
+                   <div className="bg-[#EAF4EF] px-2 py-1.5 rounded-lg border border-[#c5d9d3] shadow-sm flex flex-col items-center min-w-[50px]">
+                      <CheckCircle size={12} className="text-[#347B5A] mb-0.5" />
+                      <span className="font-black text-[13px] text-[#347B5A] leading-none">{stat.statusUpdates}</span>
+                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
