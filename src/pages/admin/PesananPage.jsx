@@ -5,6 +5,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
 import { Search, Filter, ChevronLeft, ChevronRight, Eye, RefreshCw, Inbox } from 'lucide-react';
 import { seedDummyData } from '../../utils/seedDummyData';
+import { useAuth } from '../../contexts/AuthContext';
 
 const STATUS_FLOW = {
   pending:      { next: 'validated',    label: 'Validasi Pesanan' },
@@ -24,11 +25,23 @@ const formatDate = (ts) => {
   return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+const getInvoiceNumber = (order) => {
+  const invoice = order?.invoice_number || order?.invoice || order?.invoice_no || order?.invoiceId;
+  if (invoice) return invoice;
+  return order?.id ? `INV-${order.id.slice(-6).toUpperCase()}` : '-';
+};
+
+const getPaymentHandler = (order) => {
+  return order?.paid_by || order?.pelunasan_by || order?.updated_by || order?.paidBy || '-';
+};
+
 const PAGE_SIZE = 10;
 
 export const PesananPage = () => {
   const { orders, loading } = useOrdersSnapshot({});
   const { changeStatus, isUpdating } = useOrderActions();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -36,6 +49,9 @@ export const PesananPage = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState('');
+
+  // Daftar Pesanan hanya untuk pemantauan. Validasi dilakukan di halaman khusus petugas_validasi.
+  const canValidate = role === 'petugas_validasi';
 
   const filtered = useMemo(() => {
     return orders.filter(o => {
@@ -62,7 +78,7 @@ export const PesananPage = () => {
 
   const handleNextStatus = async (order) => {
     const flow = STATUS_FLOW[order.status];
-    if (!flow) return;
+    if (!flow || !canValidate) return;
     await changeStatus(order.id, flow.next);
     setSelectedOrder(prev => prev ? { ...prev, status: flow.next } : null);
   };
@@ -120,11 +136,15 @@ export const PesananPage = () => {
               <thead>
                 <tr className="border-b border-slate-100">
                   <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">#</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">No. Invoice</th>
                   <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Klien</th>
                   <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Produk</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Nama File</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Jasa Desain</th>
                   <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Total</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Masuk</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Selesai</th>
                   <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Status</th>
-                  <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Tanggal</th>
                   <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Aksi</th>
                 </tr>
               </thead>
@@ -132,6 +152,7 @@ export const PesananPage = () => {
                 {paginated.map((order, idx) => (
                   <tr key={order.id} className="hover:bg-slate-50/60 transition-colors group">
                     <td className="px-6 py-4 text-[#646A66] font-semibold">{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                    <td className="px-6 py-4 font-bold text-[#1A1D1B]">{getInvoiceNumber(order)}</td>
                     <td className="px-6 py-4">
                       <p className="font-bold text-[#1A1D1B]">{order.customer_name}</p>
                       <p className="text-xs text-[#646A66] mt-0.5">{order.customer_phone}</p>
@@ -140,9 +161,20 @@ export const PesananPage = () => {
                       <p className="font-semibold text-[#1A1D1B] max-w-[180px] truncate">{order.product_name}</p>
                       <p className="text-xs text-[#646A66] mt-0.5">{order.quantity} {order.product_unit}</p>
                     </td>
+                    <td className="px-6 py-4">
+                      <p className="text-xs font-semibold text-[#1A1D1B] max-w-[180px] truncate">
+                        {order.file_name || '-'}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-xs font-semibold text-[#646A66]">
+                        {order.needs_design ? `Ya (${formatRupiah(order.design_price)})` : 'Tidak'}
+                      </p>
+                    </td>
                     <td className="px-6 py-4 font-extrabold text-[#1A1D1B]">{formatRupiah(order.total_price)}</td>
-                    <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
                     <td className="px-6 py-4 text-[#646A66] font-medium">{formatDate(order.created_at)}</td>
+                    <td className="px-6 py-4 text-[#646A66] font-medium">{formatDate(order.paid_at || order.updated_at)}</td>
+                    <td className="px-6 py-4"><StatusBadge status={order.status} /></td>
                     <td className="px-6 py-4">
                       <button
                         onClick={() => setSelectedOrder(order)}
@@ -189,16 +221,32 @@ export const PesananPage = () => {
       <Modal open={!!selectedOrder} onClose={() => setSelectedOrder(null)} title="Detail Pesanan" size="md">
         {selectedOrder && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
+              <InfoRow label="No. Invoice" value={getInvoiceNumber(selectedOrder)} />
               <InfoRow label="Klien" value={selectedOrder.customer_name} />
               <InfoRow label="No. HP" value={selectedOrder.customer_phone || '-'} />
               <InfoRow label="Produk" value={selectedOrder.product_name} />
+              <InfoRow label="Nama File" value={selectedOrder.file_name || '-'} />
               <InfoRow label="Qty" value={`${selectedOrder.quantity} ${selectedOrder.product_unit}`} />
+              <InfoRow label="Jasa Desain" value={selectedOrder.needs_design ? `Ya (${formatRupiah(selectedOrder.design_price)}) - ${selectedOrder.designer_email}` : 'Tidak'} />
               <InfoRow label="Total Harga" value={formatRupiah(selectedOrder.total_price)} highlight />
+              {isAdmin && <InfoRow label="Profit" value={selectedOrder.profit ? formatRupiah(selectedOrder.profit) : '-'} />}
               <InfoRow label="DP" value={selectedOrder.dp_amount ? formatRupiah(selectedOrder.dp_amount) : 'Belum ada'} />
               <InfoRow label="Tanggal Masuk" value={formatDate(selectedOrder.created_at)} />
+              <InfoRow label="Tanggal Selesai" value={formatDate(selectedOrder.paid_at)} />
               <InfoRow label="Status" value={<StatusBadge status={selectedOrder.status} />} />
             </div>
+
+            {isAdmin && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InfoRow label="Validasi oleh" value={selectedOrder.validated_by || '-'} />
+                <InfoRow label="Cetak oleh" value={selectedOrder.cetak_by || '-'} />
+                <InfoRow label="Finishing oleh" value={selectedOrder.finishing_by || '-'} />
+                <InfoRow label="Packing oleh" value={selectedOrder.packing_by || '-'} />
+                <InfoRow label="DP Dikonfirmasi oleh" value={selectedOrder.dp_confirmed_by || '-'} />
+                <InfoRow label="Pelunasan oleh" value={getPaymentHandler(selectedOrder)} />
+              </div>
+            )}
 
             {selectedOrder.notes && (
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
@@ -207,7 +255,7 @@ export const PesananPage = () => {
               </div>
             )}
 
-            {STATUS_FLOW[selectedOrder.status] && (
+            {canValidate && STATUS_FLOW[selectedOrder.status] && (
               <button
                 onClick={() => handleNextStatus(selectedOrder)}
                 disabled={isUpdating}

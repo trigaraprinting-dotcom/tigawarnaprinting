@@ -210,7 +210,7 @@ export const CSDashboard = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100">
-                      {['Informasi Klien', 'Detail Pesanan', 'Status', 'Aksi'].map(h => (
+                      {['Informasi Klien', 'Detail Pesanan', 'File & Jasa Desain', 'Status', 'Aksi'].map(h => (
                         <th key={h} className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-slate-400">{h}</th>
                       ))}
                     </tr>
@@ -230,6 +230,14 @@ export const CSDashboard = () => {
                         <td className="px-6 py-4">
                           <p className="font-bold text-[#1A1D1B] text-[13px] max-w-[200px] truncate">{order.product_name}</p>
                           <p className="text-[11px] font-semibold text-[#607d6e] mt-0.5">{order.quantity} {order.product_unit}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-[11px] font-semibold text-[#1A1D1B] max-w-[200px] truncate">
+                            {order.file_name || '-'}
+                          </p>
+                          <p className="text-[11px] font-semibold text-[#607d6e] mt-0.5">
+                            {order.needs_design ? `Desainer: ${order.designer_email}` : 'Tanpa Jasa Desain'}
+                          </p>
                         </td>
                         <td className="px-6 py-4"><div className="scale-90 origin-left"><StatusBadge status={order.status} /></div></td>
                         <td className="px-6 py-4">
@@ -360,7 +368,9 @@ export const CSDashboard = () => {
                 ['Klien', selectedOrder.customer_name],
                 ['No. HP', selectedOrder.customer_phone || '-'],
                 ['Produk', selectedOrder.product_name],
+                ['Nama File', selectedOrder.file_name || '-'],
                 ['Jumlah', `${selectedOrder.quantity} ${selectedOrder.product_unit}`],
+                ['Jasa Desain', selectedOrder.needs_design ? `Ya (${formatRupiah(selectedOrder.design_price)}) - ${selectedOrder.designer_email}` : 'Tidak'],
                 ['Total', formatRupiah(selectedOrder.total_price)],
                 ['DP', selectedOrder.dp_amount ? formatRupiah(selectedOrder.dp_amount) : 'Belum ada'],
                 ['Tanggal', formatDate(selectedOrder.created_at)],

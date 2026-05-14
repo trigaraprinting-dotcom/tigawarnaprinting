@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useOrdersSnapshot, useOrderActions } from '../../hooks/useOrders';
+import { useAuth } from '../../contexts/AuthContext';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
 import { CheckCircle2, PackageCheck } from 'lucide-react';
@@ -10,6 +11,7 @@ const formatRupiah = (val) =>
 export const KasirPelunasan = () => {
   const { orders, loading } = useOrdersSnapshot();
   const { changeStatus, isUpdating } = useOrderActions();
+  const { user } = useAuth();
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   // Focus primarily on 'ready' status for pelunasan
@@ -18,6 +20,7 @@ export const KasirPelunasan = () => {
   const handleConfirmSelesai = async (orderId) => {
     await changeStatus(orderId, 'done', {
       paid_at: new Date(),
+      paid_by: user?.email || 'Unknown',
     });
     setSelectedOrder(null);
   };

@@ -8,10 +8,10 @@ export const PengaturanPage = () => {
   const { user } = useAuth();
 
   const [bizForm, setBizForm] = useState({
-    nama: 'Trigara Print Management',
+    nama: 'Tiga Warna Print Management',
     alamat: 'Jl. Contoh No. 123, Kota Anda',
     whatsapp: '081234567890',
-    email: 'info@trigara.com',
+    email: 'info@tiga-warna.com',
   });
 
   const [passForm, setPassForm] = useState({ current: '', new: '', confirm: '' });

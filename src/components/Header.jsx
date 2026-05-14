@@ -60,15 +60,6 @@ export const Header = () => {
             {roleLabel}
           </span>
         </div>
-
-        {/* Action Buttons */}
-        <button className="w-11 h-11 shrink-0 bg-white rounded-full flex items-center justify-center shadow-sm relative text-[#1A1D1B] hover:bg-slate-50 hover:shadow-md transition-all">
-          <MessageSquare size={20} strokeWidth={2} className="text-[#646A66]" />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 border-2 border-white rounded-full"></span>
-        </button>
-        <button className="w-11 h-11 shrink-0 bg-white rounded-full flex items-center justify-center shadow-sm text-[#1A1D1B] hover:bg-slate-50 hover:shadow-md transition-all">
-          <Bell size={20} strokeWidth={2} className="text-[#646A66]" />
-        </button>
       </div>
     </div>
   );

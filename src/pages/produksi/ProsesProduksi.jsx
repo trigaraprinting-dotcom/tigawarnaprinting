@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useOrdersSnapshot, useOrderActions } from '../../hooks/useOrders';
+import { useAuth } from '../../contexts/AuthContext';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
 import {
   Printer, Package, PackageCheck, CheckCircle2,
-  ChevronRight, ArrowRight, Clock
+  ChevronRight, ArrowRight, Clock, PlusCircle
 } from 'lucide-react';
 
 const formatDate = (ts) => {
@@ -69,6 +70,7 @@ export const ProsesProduksi = () => {
     status: PRODUCTION_STATUSES,
   });
   const { changeStatus, isUpdating } = useOrderActions();
+  const { user } = useAuth();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [successId, setSuccessId] = useState(null);
 
@@ -78,14 +80,33 @@ export const ProsesProduksi = () => {
     packing:   allProductionOrders.filter(o => o.status === 'packing'),
   };
 
-  const handleAdvance = async () => {
+  const handleAdvance = async (overrideNext) => {
     if (!selectedOrder) return;
-    const { next } = STATUS_NEXT[selectedOrder.status];
+    const nextStatus = overrideNext || STATUS_NEXT[selectedOrder.status].next;
+    const updateData = {
+      operator_id: user?.uid || 'unknown_id',
+      operator_email: user?.email || 'unknown_email',
+    };
+    if (selectedOrder.status === 'cetak') {
+      updateData.cetak_by = user?.email || 'Unknown';
+      updateData.cetak_at = new Date();
+    }
+    if (selectedOrder.status === 'finishing') {
+      updateData.finishing_by = user?.email || 'Unknown';
+      updateData.finishing_at = new Date();
+    }
+    if (selectedOrder.status === 'packing') {
+      updateData.packing_by = user?.email || 'Unknown';
+      updateData.packing_at = new Date();
+    }
+
     setSuccessId(selectedOrder.id);
-    await changeStatus(selectedOrder.id, next);
+    await changeStatus(selectedOrder.id, nextStatus, updateData);
     setSelectedOrder(null);
     setTimeout(() => setSuccessId(null), 1500);
   };
+
+
 
   if (loading) {
     return (
@@ -255,16 +276,18 @@ export const ProsesProduksi = () => {
               <div className="grid grid-cols-2 gap-3">
                 {[
                   ['Produk', selectedOrder.product_name],
+                  ['Nama File', selectedOrder.file_name || '-'],
                   ['Jumlah', `${selectedOrder.quantity} ${selectedOrder.product_unit}`],
-                  ['Tanggal', formatDate(selectedOrder.created_at)],
-                  ['Status', <StatusBadge status={selectedOrder.status} />],
+                  ['Tgl Masuk', formatDate(selectedOrder.created_at)],
                 ].map(([label, val]) => (
                   <div key={label} className="bg-slate-50 rounded-xl p-3.5">
-                    <p className="text-xs font-bold text-[#646A66] uppercase tracking-wider mb-1">{label}</p>
-                    <p className="font-bold text-sm text-[#1A1D1B]">{val}</p>
+                    <p className="text-[10px] font-bold text-[#646A66] uppercase tracking-widest mb-1">{label}</p>
+                    <p className="font-extrabold text-[13px] text-[#1A1D1B]">{val}</p>
                   </div>
                 ))}
               </div>
+
+
 
               {selectedOrder.notes && (
                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
@@ -288,29 +311,62 @@ export const ProsesProduksi = () => {
 
               {/* Progress flow indicator */}
               {STATUS_NEXT[selectedOrder.status] && (
-                <div className="flex items-center justify-center gap-3 py-2">
-                  <div className={`px-4 py-2 rounded-xl ${cfg?.badgeBg} text-[12px] font-extrabold`}>
-                    {cfg?.label}
+                <div className="flex flex-col items-center gap-2 py-2">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className={`px-4 py-2 rounded-xl ${cfg?.badgeBg} text-[12px] font-extrabold`}>
+                      {cfg?.label}
+                    </div>
+                    <ArrowRight size={18} className="text-slate-300" />
+                    <div className={`px-4 py-2 rounded-xl text-[12px] font-extrabold ${
+                      isPacking ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {isPacking ? 'Siap Diambil (→ Kasir)' : (COLUMN_CONFIG[STATUS_NEXT[selectedOrder.status].next]?.label || STATUS_NEXT[selectedOrder.status].next)}
+                    </div>
                   </div>
-                  <ArrowRight size={18} className="text-slate-300" />
-                  <div className={`px-4 py-2 rounded-xl text-[12px] font-extrabold ${
-                    isPacking ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {isPacking ? 'Siap Diambil (→ Kasir)' : (COLUMN_CONFIG[STATUS_NEXT[selectedOrder.status].next]?.label || STATUS_NEXT[selectedOrder.status].next)}
-                  </div>
+                  {selectedOrder.status === 'cetak' && (
+                    <p className="text-[11px] font-semibold text-slate-400">Atau langsung ke Packing (lewati finishing).</p>
+                  )}
                 </div>
               )}
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => setSelectedOrder(null)}
-                  className="flex-1 px-5 py-3 bg-slate-100 text-[#1A1D1B] font-bold rounded-xl text-sm hover:bg-slate-200 transition-colors"
+                  className="px-5 py-3 bg-slate-100 text-[#1A1D1B] font-bold rounded-xl text-sm hover:bg-slate-200 transition-colors w-full sm:w-auto"
                 >
                   Batal
                 </button>
-                {STATUS_NEXT[selectedOrder.status] && (
+                
+                {selectedOrder.status === 'cetak' ? (
+                  <div className="flex flex-1 gap-2">
+                    <button
+                      onClick={() => handleAdvance('packing')}
+                      disabled={isUpdating}
+                      className="flex-1 text-white text-xs sm:text-sm font-semibold py-3 rounded-xl bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-200 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      {isUpdating ? '...' : (
+                        <>
+                          <PackageCheck size={16} />
+                          Langsung Packing
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleAdvance('finishing')}
+                      disabled={isUpdating}
+                      className={`flex-1 text-white text-xs sm:text-sm font-semibold py-3 rounded-xl transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-1.5 ${cfg?.btnColor}`}
+                    >
+                      {isUpdating ? '...' : (
+                        <>
+                          <CheckCircle2 size={16} />
+                          Lanjut Finishing
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : STATUS_NEXT[selectedOrder.status] && (
                   <button
-                    onClick={handleAdvance}
+                    onClick={() => handleAdvance()}
                     disabled={isUpdating}
                     className={`flex-1 text-white text-sm font-semibold py-3 rounded-xl transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 ${cfg?.btnColor}`}
                   >

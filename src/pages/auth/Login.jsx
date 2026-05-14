@@ -5,7 +5,7 @@ import { Eye, EyeOff } from 'lucide-react';
 
 export const Login = () => {
   // Pre-filled admin credentials
-  const [email, setEmail] = useState('admin@trigara.com');
+  const [email, setEmail] = useState('admin@tiga-warna.com');
   const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -57,7 +57,7 @@ export const Login = () => {
              <div className="w-5 h-6 bg-[#7B3DF6] rounded-sm flex items-center justify-center">
                  <div className="w-2.5 h-3.5 bg-white rounded-sm"></div>
              </div>
-             <span className="font-bold text-slate-800 text-lg tracking-tight">Trigara</span>
+             <span className="font-bold text-slate-800 text-lg tracking-tight">Tiga Warna</span>
           </div>
 
           <div className="max-w-[380px] w-full mt-12">
@@ -85,7 +85,7 @@ export const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-5 py-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#7B3DF6]/20 focus:border-[#7B3DF6] outline-none transition-all text-[15px] font-medium text-slate-700 placeholder-slate-400 bg-white"
-                  placeholder="admin@trigara.com"
+                  placeholder="admin@tiga-warna.com"
                   required 
                 />
               </div>
@@ -214,7 +214,7 @@ export const Login = () => {
                   </div>
                   
                   <div className="bg-white/20 h-1.5 w-3/4 rounded-full mt-auto mb-2"></div>
-                  <div className="text-white/60 text-[10px] uppercase tracking-widest font-bold mb-8">Trigara Printing</div>
+                  <div className="text-white/60 text-[10px] uppercase tracking-widest font-bold mb-8">Tiga Warna Printing</div>
                </div>
             </div>
 

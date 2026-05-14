@@ -8,16 +8,19 @@ import { DashboardLayout } from './layouts/DashboardLayout';
 // Admin pages
 import { AdminDashboard }  from './pages/admin/AdminDashboard';
 import { PesananPage }     from './pages/admin/PesananPage';
+import { ProdukPage }      from './pages/admin/ProdukPage';
 import { UsersPage }       from './pages/admin/UsersPage';
 import { KategoriPage }    from './pages/admin/KategoriPage';
 import { LaporanPage }     from './pages/admin/LaporanPage';
-import { AktivitasPage }   from './pages/admin/AktivitasPage';
 import { PengaturanPage }  from './pages/admin/PengaturanPage';
+import { KinerjaPekerjaPage } from './pages/admin/KinerjaPekerjaPage';
 
 // Role-specific pages
 import { CSDashboard }        from './pages/cs/CSDashboard';
 import { InputPesanan }       from './pages/cs/InputPesanan';
 import { ValidasiDashboard }  from './pages/validasi/ValidasiDashboard';
+import { ClientValidasiPage } from './pages/validasi/ClientValidasiPage';
+import { DesainerDashboard }  from './pages/desainer/DesainerDashboard';
 import { KasirDashboard }     from './pages/kasir/KasirDashboard';
 import { ProduksiDashboard }  from './pages/produksi/ProduksiDashboard';
 import { ProsesProduksi }     from './pages/produksi/ProsesProduksi';
@@ -31,6 +34,7 @@ const RoleRedirect = () => {
   if (role === 'petugas_validasi') return <Navigate to="/validasi/dashboard" replace />;
   if (role === 'kasir')            return <Navigate to="/kasir/dashboard"    replace />;
   if (role === 'petugas_produksi') return <Navigate to="/produksi/dashboard" replace />;
+  if (role === 'desainer')         return <Navigate to="/desainer/dashboard" replace />;
   
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#EFEFEF] p-4 font-sans">
@@ -75,10 +79,11 @@ function App() {
               <Route path="admin" element={<ProtectedRoute allowedRoles={['admin']} />}>
                 <Route path="dashboard"  element={<AdminDashboard />} />
                 <Route path="pesanan"    element={<PesananPage />} />
+                <Route path="produk"     element={<ProdukPage />} />
                 <Route path="users"      element={<UsersPage />} />
                 <Route path="kategori"   element={<KategoriPage />} />
                 <Route path="laporan"    element={<LaporanPage />} />
-                <Route path="aktivitas"  element={<AktivitasPage />} />
+                <Route path="kinerja-pekerja" element={<KinerjaPekerjaPage />} />
                 <Route path="pengaturan" element={<PengaturanPage />} />
               </Route>
 
@@ -92,6 +97,7 @@ function App() {
               {/* ── Validasi ── */}
               <Route path="validasi" element={<ProtectedRoute allowedRoles={['petugas_validasi', 'admin']} />}>
                 <Route path="dashboard" element={<ValidasiDashboard />} />
+                <Route path="klien"     element={<ClientValidasiPage />} />
               </Route>
 
               {/* ── Kasir ── */}
@@ -105,6 +111,11 @@ function App() {
                 <Route path="dashboard" element={<ProduksiDashboard />} />
                 <Route path="proses"    element={<ProsesProduksi />} />
                 <Route path="kategori"  element={<KategoriPage />} />
+              </Route>
+
+              {/* ── Desainer ── */}
+              <Route path="desainer" element={<ProtectedRoute allowedRoles={['desainer', 'admin']} />}>
+                <Route path="dashboard" element={<DesainerDashboard />} />
               </Route>
             </Route>
           </Route>

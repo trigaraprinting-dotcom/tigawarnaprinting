@@ -6,6 +6,7 @@ const STATUS_CONFIG = {
   validated:    { label: 'Divalidasi',    bg: 'bg-blue-50',    text: 'text-blue-700',   dot: 'bg-blue-500'   },
   rejected:     { label: 'Ditolak',       bg: 'bg-red-50',     text: 'text-red-700',    dot: 'bg-red-500'    },
   dp_confirmed: { label: 'DP Lunas',      bg: 'bg-purple-50',  text: 'text-purple-700', dot: 'bg-purple-500' },
+  designing:    { label: 'Proses Desain', bg: 'bg-rose-50',    text: 'text-rose-700',   dot: 'bg-rose-500'   },
   cetak:        { label: 'Proses Cetak',  bg: 'bg-cyan-50',    text: 'text-cyan-700',   dot: 'bg-cyan-500'   },
   finishing:    { label: 'Finishing',     bg: 'bg-indigo-50',  text: 'text-indigo-700', dot: 'bg-indigo-500' },
   packing:      { label: 'Packing',       bg: 'bg-yellow-50',  text: 'text-yellow-700', dot: 'bg-yellow-500' },

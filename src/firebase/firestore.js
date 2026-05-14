@@ -15,6 +15,7 @@ export const ORDER_STATUS = {
   VALIDATED: 'validated',
   REJECTED: 'rejected',
   DP_CONFIRMED: 'dp_confirmed',
+  DESIGNING: 'designing',
   CETAK: 'cetak',
   FINISHING: 'finishing',
   PACKING: 'packing',

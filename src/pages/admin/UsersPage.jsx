@@ -11,6 +11,7 @@ import {
 const ROLES = [
   { value: 'admin',            label: 'Admin',             color: 'text-purple-700 bg-purple-50' },
   { value: 'customer_service', label: 'Customer Service',  color: 'text-blue-700 bg-blue-50'   },
+  { value: 'desainer',         label: 'Desainer',          color: 'text-rose-700 bg-rose-50'   },
   { value: 'petugas_validasi', label: 'Petugas Validasi',  color: 'text-green-700 bg-green-50'  },
   { value: 'kasir',            label: 'Kasir',             color: 'text-amber-700 bg-amber-50'  },
   { value: 'petugas_produksi', label: 'Petugas Produksi',  color: 'text-cyan-700 bg-cyan-50'    },
@@ -126,6 +127,21 @@ export const UsersPage = () => {
     setSaving(false);
   };
 
+  // ── Hard Delete ───────────────────────────────────────────────────────────
+  const handleHardDelete = async () => {
+    if (!selectedUser) return;
+    setSaving(true);
+    try {
+      const { deleteDoc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, 'users', selectedUser.id));
+      showMsg(`Akun ${selectedUser.email} dihapus permanen.`);
+    } catch(err) {
+      showMsg('Gagal menghapus: ' + err.message, true);
+    }
+    setModalType(null);
+    setSaving(false);
+  };
+
   const getRoleConfig = (role) => ROLES.find(r => r.value === role) || { label: role || 'Belum Diatur', color: 'text-slate-600 bg-slate-100' };
   const totalByRole = ROLES.map(r => ({ ...r, count: users.filter(u => u.role === r.value && u.status !== 'inactive').length }));
 
@@ -154,7 +170,7 @@ export const UsersPage = () => {
       </div>
 
       {/* Role Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         {totalByRole.map(r => (
           <div key={r.value} className="bg-white rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-5 flex flex-col gap-2 hover:shadow-lg transition-shadow">
             <div className={`text-xs font-extrabold uppercase tracking-wider px-2 py-1 rounded-lg self-start ${r.color}`}>{r.label.split(' ')[0]}</div>
@@ -231,6 +247,14 @@ export const UsersPage = () => {
                               className="flex items-center gap-1.5 text-red-500 font-bold text-xs bg-red-50 px-3 py-2 rounded-xl hover:bg-red-100 transition-all"
                             >
                               <Trash2 size={13} /> Nonaktif
+                            </button>
+                          )}
+                          {isInactive && (
+                            <button
+                              onClick={() => { setSelectedUser(user); setModalType('hard_delete'); }}
+                              className="flex items-center gap-1.5 text-red-500 font-bold text-xs bg-red-50 px-3 py-2 rounded-xl hover:bg-red-100 transition-all"
+                            >
+                              <Trash2 size={13} /> Hapus Permanen
                             </button>
                           )}
                         </div>
@@ -331,6 +355,30 @@ export const UsersPage = () => {
               <button onClick={handleDeactivate} disabled={saving}
                 className="bg-red-500 hover:bg-red-600 text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50">
                 {saving ? 'Memproses...' : 'Nonaktifkan'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Hard Delete Modal ── */}
+      <Modal open={modalType === 'hard_delete'} onClose={() => setModalType(null)} title="Hapus Pengguna Permanen" size="sm">
+        {selectedUser && (
+          <div className="space-y-5">
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle size={20} className="text-red-500 shrink-0 mt-0.5" />
+              <p className="text-sm font-semibold text-red-700">
+                Akun <b>{selectedUser.email}</b> akan dihapus secara <b>permanen</b> dari database. Tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setModalType(null)}
+                className="bg-slate-100 hover:bg-slate-200 text-[#1A1D1B] font-bold py-3.5 rounded-xl transition-all">
+                Batal
+              </button>
+              <button onClick={handleHardDelete} disabled={saving}
+                className="bg-red-500 hover:bg-red-600 text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50">
+                {saving ? 'Menghapus...' : 'Hapus Permanen'}
               </button>
             </div>
           </div>

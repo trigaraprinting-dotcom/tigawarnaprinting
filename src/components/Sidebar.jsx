@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   LayoutDashboard, ListOrdered, Users, FileText, Settings, 
-  ClipboardCheck, Receipt, Printer, LogOut, Hexagon,
-  ChevronRight, ChevronLeft, Tags, Activity, PlusCircle
+  ClipboardCheck, Receipt, Printer, LogOut,
+  ChevronRight, ChevronLeft, Tags, Activity, PlusCircle, Box,
+  Sun, Moon
 } from 'lucide-react';
 import clsx from 'clsx';
 import { logout } from '../firebase/auth';
@@ -12,16 +13,32 @@ import { logout } from '../firebase/auth';
 export const Sidebar = () => {
   const { role, user } = useAuth();
   const [expanded, setExpanded] = useState(false);
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark';
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   const menuItems = {
     admin: [
       { path: '/admin/dashboard',   icon: LayoutDashboard, label: 'Dashboard'   },
       { path: '/admin/pesanan',      icon: ListOrdered,     label: 'Pesanan'     },
-      { path: '/admin/users',        icon: Users,           label: 'Manajemen'   },
+      { path: '/admin/produk',       icon: Box,             label: 'Produk'      },
+      { path: '/admin/users',        icon: Users,           label: 'User'   },
       { path: '/admin/kategori',     icon: Tags,            label: 'Kategori'    },
       { path: '/admin/laporan',      icon: FileText,        label: 'Laporan'     },
-      { path: '/admin/aktivitas',    icon: Activity,        label: 'Aktivitas'   },
-      { path: '/admin/pengaturan',   icon: Settings,        label: 'Pengaturan'  },
+      { path: '/admin/kinerja-pekerja', icon: Activity,      label: 'Kinerja' },
     ],
     customer_service: [
       { path: '/cs/dashboard',       icon: LayoutDashboard, label: 'Dashboard'   },
@@ -30,6 +47,7 @@ export const Sidebar = () => {
     ],
     petugas_validasi: [
       { path: '/validasi/dashboard', icon: ClipboardCheck,  label: 'Validasi'    },
+      { path: '/validasi/klien',     icon: Users,           label: 'Daftar Klien' },
     ],
     kasir: [
       { path: '/kasir/dashboard',    icon: Receipt,         label: 'Dashboard'   },
@@ -40,10 +58,78 @@ export const Sidebar = () => {
       { path: '/produksi/proses',    icon: Printer,         label: 'Produksi'    },
       { path: '/produksi/kategori',  icon: Tags,            label: 'Kategori'    },
     ],
+    desainer: [
+      { path: '/desainer/dashboard', icon: LayoutDashboard, label: 'Dashboard'   },
+    ],
   };
 
   const currentMenu = menuItems[role] || menuItems.admin;
   const displayName = user?.email?.split('@')[0] || 'User';
+
+  const adminDashboardItem = menuItems.admin.find(i => i.path === '/admin/dashboard');
+  const adminPesananItem = menuItems.admin.find(i => i.path === '/admin/pesanan');
+
+  const adminMasterItems = [
+    menuItems.admin.find(i => i.path === '/admin/produk'),
+    menuItems.admin.find(i => i.path === '/admin/kategori'),
+    menuItems.admin.find(i => i.path === '/admin/users'),
+  ].filter(Boolean);
+
+  const adminLaporanItems = [
+    menuItems.admin.find(i => i.path === '/admin/laporan'),
+    menuItems.admin.find(i => i.path === '/admin/kinerja-pekerja'),
+  ].filter(Boolean);
+
+  const [openAdminGroups, setOpenAdminGroups] = useState(() => new Set());
+
+  useEffect(() => {
+    if (role !== 'admin') return;
+
+    const masterActive = adminMasterItems.some(item => pathname.startsWith(item.path));
+    const laporanActive = adminLaporanItems.some(item => pathname.startsWith(item.path));
+
+    const next = new Set();
+    if (masterActive) next.add('master');
+    if (laporanActive) next.add('laporan');
+    setOpenAdminGroups(next);
+  }, [role, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleAdminGroup = (key) => {
+    setOpenAdminGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const renderNavItem = (item) => {
+    const Icon = item.icon;
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        end
+        title={!expanded ? item.label : undefined}
+        className={({ isActive }) => clsx(
+          'flex items-center transition-all duration-300 outline-none group shrink-0',
+          expanded
+            ? 'justify-start px-4 h-[50px] w-full gap-3.5 rounded-2xl'
+            : 'justify-center w-[52px] h-[52px] mx-auto rounded-[1.2rem]',
+          isActive
+            ? 'bg-[#1A1D1B] text-white shadow-[0_8px_20px_rgba(0,0,0,0.15)] scale-105'
+            : 'text-slate-400 hover:text-[#1A1D1B] hover:bg-slate-50 hover:scale-105'
+        )}
+      >
+        <Icon size={20} strokeWidth={2.5} className="shrink-0" />
+        {expanded && (
+          <span className="font-bold text-[13px] whitespace-nowrap animate-in fade-in duration-300">
+            {item.label}
+          </span>
+        )}
+      </NavLink>
+    );
+  };
 
   return (
     <>
@@ -70,48 +156,182 @@ export const Sidebar = () => {
           expanded ? 'justify-start px-2 w-full' : 'justify-center'
         )}>
           <div className="hover:scale-110 transition-transform cursor-pointer shrink-0">
-            <Hexagon strokeWidth={2.5} size={34} className="fill-[#607d6e] text-white" />
+            <img src="/logo.png" alt="Tiga Warna Logo" className="w-8 h-8 object-contain" />
           </div>
           {expanded && (
             <span className="font-extrabold text-[#1A1D1B] text-xl tracking-tight whitespace-nowrap animate-in fade-in duration-300">
-              Trigara
+              Tiga Warna
             </span>
           )}
         </div>
 
         {/* Menu items */}
-        <div className={clsx('flex-1 flex flex-col gap-2.5', expanded && 'w-full')}>
-          {currentMenu.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end
-                title={!expanded ? item.label : undefined}
-                className={({ isActive }) => clsx(
-                  'flex items-center transition-all duration-300 outline-none group',
-                  expanded
-                    ? 'justify-start px-4 h-[50px] w-full gap-3.5 rounded-2xl'
-                    : 'justify-center w-[52px] h-[52px] mx-auto rounded-[1.2rem]',
-                  isActive
-                    ? 'bg-[#1A1D1B] text-white shadow-[0_8px_20px_rgba(0,0,0,0.15)] scale-105'
-                    : 'text-slate-400 hover:text-[#1A1D1B] hover:bg-slate-50 hover:scale-105'
-                )}
-              >
-                <Icon size={20} strokeWidth={2.5} className="shrink-0" />
-                {expanded && (
+        <div className={clsx('flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-2 pb-3', expanded && 'w-full')}>
+          {role !== 'admin' ? (
+            currentMenu.map(renderNavItem)
+          ) : expanded ? (
+            <>
+              {adminDashboardItem && renderNavItem(adminDashboardItem)}
+              {adminPesananItem && renderNavItem(adminPesananItem)}
+
+              <div className="flex flex-col gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => toggleAdminGroup('master')}
+                  className={clsx(
+                    'flex items-center gap-3.5 h-[50px] px-4 w-full rounded-2xl outline-none transition-all border shrink-0',
+                    openAdminGroups.has('master')
+                      ? 'bg-slate-50 hover:bg-slate-100 text-[#1A1D1B] border-slate-100'
+                      : 'text-slate-400 hover:text-[#1A1D1B] hover:bg-slate-50 border-transparent'
+                  )}
+                >
+                  <Tags size={20} strokeWidth={2.5} className="shrink-0" />
                   <span className="font-bold text-[13px] whitespace-nowrap animate-in fade-in duration-300">
-                    {item.label}
+                    Master Data 
                   </span>
+                  <ChevronRight
+                    size={16}
+                    strokeWidth={2.5}
+                    className={clsx(
+                      'ml-auto transition-transform',
+                      openAdminGroups.has('master') ? 'rotate-90 text-[#1A1D1B]' : 'rotate-0'
+                    )}
+                  />
+                </button>
+                {openAdminGroups.has('master') && (
+                  <div className="flex flex-col gap-2.5 pl-7">
+                    {adminMasterItems.map(renderNavItem)}
+                  </div>
                 )}
-              </NavLink>
-            );
-          })}
+              </div>
+
+              <div className="flex flex-col gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => toggleAdminGroup('laporan')}
+                  className={clsx(
+                    'flex items-center gap-3.5 h-[50px] px-4 w-full rounded-2xl outline-none transition-all border shrink-0',
+                    openAdminGroups.has('laporan')
+                      ? 'bg-slate-50 hover:bg-slate-100 text-[#1A1D1B] border-slate-100'
+                      : 'text-slate-400 hover:text-[#1A1D1B] hover:bg-slate-50 border-transparent'
+                  )}
+                >
+                  <FileText size={20} strokeWidth={2.5} className="shrink-0" />
+                  <span className="font-bold text-[13px] whitespace-nowrap animate-in fade-in duration-300">
+                    Laporan 
+                  </span>
+                  <ChevronRight
+                    size={16}
+                    strokeWidth={2.5}
+                    className={clsx(
+                      'ml-auto transition-transform',
+                      openAdminGroups.has('laporan') ? 'rotate-90 text-[#1A1D1B]' : 'rotate-0'
+                    )}
+                  />
+                </button>
+                {openAdminGroups.has('laporan') && (
+                  <div className="flex flex-col gap-2.5 pl-7">
+                    {adminLaporanItems.map(renderNavItem)}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {adminDashboardItem && renderNavItem(adminDashboardItem)}
+              {adminPesananItem && renderNavItem(adminPesananItem)}
+
+              {(() => {
+                const isMasterActive = adminMasterItems.some(i => pathname.startsWith(i.path));
+                const first = adminMasterItems[0];
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpanded(true);
+                      if (!isMasterActive && first) navigate(first.path);
+                      if (!openAdminGroups.has('master')) toggleAdminGroup('master');
+                    }}
+                    className={clsx(
+                      'relative flex items-center justify-center w-[52px] h-[52px] mx-auto rounded-[1.2rem] transition-all shrink-0',
+                      isMasterActive
+                        ? 'bg-slate-100 text-[#1A1D1B]'
+                        : 'text-slate-400 hover:text-[#1A1D1B] hover:bg-slate-50'
+                    )}
+                    title="Master Data (dropdown)"
+                  >
+                    <Tags size={20} strokeWidth={2.5} />
+                    <span
+                      className={clsx(
+                        'absolute -bottom-1 right-1 w-5 h-5 rounded-full flex items-center justify-center',
+                        isMasterActive ? 'bg-[#EAF4EF] text-[#347B5A]' : 'bg-slate-50 text-slate-500',
+                      )}
+                    >
+                      <ChevronRight size={14} strokeWidth={2.5} className="rotate-90" />
+                    </span>
+                  </button>
+                );
+              })()}
+
+              {(() => {
+                const isLaporanActive = adminLaporanItems.some(i => pathname.startsWith(i.path));
+                const first = adminLaporanItems[0];
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpanded(true);
+                      if (!isLaporanActive && first) navigate(first.path);
+                      if (!openAdminGroups.has('laporan')) toggleAdminGroup('laporan');
+                    }}
+                    className={clsx(
+                      'relative flex items-center justify-center w-[52px] h-[52px] mx-auto rounded-[1.2rem] transition-all shrink-0',
+                      isLaporanActive
+                        ? 'bg-slate-100 text-[#1A1D1B]'
+                        : 'text-slate-400 hover:text-[#1A1D1B] hover:bg-slate-50'
+                    )}
+                    title="Laporan (dropdown)"
+                  >
+                    <FileText size={20} strokeWidth={2.5} />
+                    <span
+                      className={clsx(
+                        'absolute -bottom-1 right-1 w-5 h-5 rounded-full flex items-center justify-center',
+                        isLaporanActive ? 'bg-[#EAF4EF] text-[#347B5A]' : 'bg-slate-50 text-slate-500',
+                      )}
+                    >
+                      <ChevronRight size={14} strokeWidth={2.5} className="rotate-90" />
+                    </span>
+                  </button>
+                );
+              })()}
+            </>
+          )}
         </div>
 
         {/* Bottom: logout + avatar */}
         <div className={clsx('mt-auto flex flex-col', expanded ? 'w-full gap-2' : 'items-center gap-4')}>
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            title={!expanded ? (isDarkMode ? 'Tema Terang' : 'Tema Gelap') : undefined}
+            className={clsx(
+              'flex items-center transition-all text-slate-400 hover:text-[#1A1D1B] hover:bg-slate-50 group',
+              expanded
+                ? 'justify-start px-4 h-[50px] w-full gap-3.5 rounded-2xl'
+                : 'justify-center w-[52px] h-[52px] rounded-[1.2rem] hover:scale-105'
+            )}
+          >
+            {isDarkMode ? (
+              <Sun size={20} strokeWidth={2.5} className="shrink-0" />
+            ) : (
+              <Moon size={20} strokeWidth={2.5} className="shrink-0" />
+            )}
+            {expanded && (
+              <span className="font-bold text-[13px] whitespace-nowrap">
+                {isDarkMode ? 'Tema Terang' : 'Tema Gelap'}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={logout}
             title={!expanded ? 'Logout' : undefined}

@@ -36,23 +36,26 @@ export const AuthProvider = ({ children }) => {
             else if (email.startsWith('cs@')) newRole = 'customer_service';
             else if (email.startsWith('validasi@')) newRole = 'petugas_validasi';
             else if (email.startsWith('kasir@')) newRole = 'kasir';
+            else if (email.startsWith('desainer@')) newRole = 'desainer';
             else if (email.startsWith('produksi@')) {
               newRole = 'petugas_produksi';
               newStage = 'cetak';
             }
 
             if (!userDoc.exists()) {
-              await setDoc(userRef, { 
+              const newDoc = { 
                 email, 
                 role: newRole || '', 
-                assigned_stage: newStage || null, 
                 created_at: new Date(),
                 name: firebaseUser.displayName || 'Pengguna Baru'
-              });
-              setRole(newRole);
-              setAssignedStage(newStage);
+              };
+              if (newStage) newDoc.assigned_stage = newStage;
+
+              await setDoc(userRef, newDoc);
+              setRole(newRole || null);
+              setAssignedStage(newStage || null);
               console.log(`Created new user record for ${email}`);
-            } else if (newRole) {
+            } else if (newRole && !data.role) {
               await setDoc(userRef, { role: newRole, assigned_stage: newStage }, { merge: true });
               setRole(newRole);
               setAssignedStage(newStage);
@@ -63,7 +66,8 @@ export const AuthProvider = ({ children }) => {
             }
           }
         } catch (error) {
-          console.error("Error fetching user role:", error);
+          console.error("Error fetching/setting user role:", error);
+          alert("Gagal memproses data akun ke sistem database. Silakan laporkan ini ke Admin.\nError: " + error.message);
           setRole(null);
         }
       } else {

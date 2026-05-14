@@ -53,7 +53,7 @@ export const ValidasiDashboard = () => {
   const validationQueue = pendingValidation.slice(0, 6);
 
   // Table filtering
-  const tableData = orders.filter(o => ['pending', 'rejected', 'cetak', 'dp_confirmed', 'validated'].includes(o.status));
+  const tableData = orders.filter(o => ['pending', 'rejected', 'cetak', 'dp_confirmed', 'validated', 'designing'].includes(o.status));
   
   const filtered = tableData.filter(o => {
     const matchSearch = !search ||
@@ -75,7 +75,22 @@ export const ValidasiDashboard = () => {
 
   const handleValidate = async () => {
     if (!selectedOrder) return;
-    await changeStatus(selectedOrder.id, 'cetak');
+    
+    const needsDesignVal = selectedOrder.needs_design;
+    const nextStatus = needsDesignVal ? 'designing' : 'cetak';
+    
+    console.log('[Validasi Debug]', {
+      orderId: selectedOrder.id,
+      needs_design: needsDesignVal,
+      needs_design_type: typeof needsDesignVal,
+      designer_email: selectedOrder.designer_email,
+      nextStatus,
+    });
+    
+    await changeStatus(selectedOrder.id, nextStatus, {
+      validated_by: user?.email || 'Unknown',
+      validated_at: new Date(),
+    });
     setSelectedOrder(null);
   };
 
@@ -381,7 +396,9 @@ export const ValidasiDashboard = () => {
                 ['Klien', selectedOrder.customer_name],
                 ['No. HP', selectedOrder.customer_phone || '-'],
                 ['Produk', selectedOrder.product_name],
+                ['Nama File', selectedOrder.file_name || '-'],
                 ['Jumlah', `${selectedOrder.quantity} ${selectedOrder.product_unit}`],
+                ['Jasa Desain', selectedOrder.needs_design ? `Ya (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(selectedOrder.design_price || 0)}) - ${selectedOrder.designer_email}` : 'Tidak'],
                 ['Total Biaya', formatRupiah(selectedOrder.total_price)],
                 ['DP Kasir', selectedOrder.dp_amount ? formatRupiah(selectedOrder.dp_amount) : '0'],
                 ['Tanggal Masuk', formatDate(selectedOrder.created_at)],
@@ -398,6 +415,32 @@ export const ValidasiDashboard = () => {
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                 <p className="text-xs font-bold text-amber-700 mb-1 uppercase">Catatan Tambahan</p>
                 <p className="text-sm text-amber-800">{selectedOrder.notes}</p>
+              </div>
+            )}
+
+            {/* Routing Decision Banner */}
+            {selectedOrder.status === 'pending' && (
+              <div className={`rounded-xl px-4 py-3 border flex items-center gap-3 ${
+                selectedOrder.needs_design
+                  ? 'bg-rose-50 border-rose-200'
+                  : 'bg-cyan-50 border-cyan-200'
+              }`}>
+                <div className={`w-2 h-2 rounded-full shrink-0 ${
+                  selectedOrder.needs_design ? 'bg-rose-500' : 'bg-cyan-500'
+                }`} />
+                <div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500 mb-0.5">Routing Otomatis</p>
+                  <p className={`text-[13px] font-extrabold ${
+                    selectedOrder.needs_design ? 'text-rose-700' : 'text-cyan-700'
+                  }`}>
+                    {selectedOrder.needs_design
+                      ? `→ Akan masuk ke antrean Desainer (${selectedOrder.designer_email || 'belum ditentukan'})`
+                      : '→ Akan langsung masuk ke antrean Cetak'}
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                    needs_design = <code>{String(selectedOrder.needs_design)}</code> ({typeof selectedOrder.needs_design})
+                  </p>
+                </div>
               </div>
             )}
 
@@ -431,7 +474,7 @@ export const ValidasiDashboard = () => {
                      disabled={isUpdating}
                      className="px-6 py-2.5 flex items-center gap-2 bg-[#1A1D1B] text-white font-bold rounded-xl text-sm hover:bg-black transition-colors shadow-lg disabled:opacity-50"
                    >
-                     <CheckCircle2 size={16}/> ACC / Lanjut Cetak
+                     <CheckCircle2 size={16}/> ACC / Lanjut Proses
                    </button>
                  </>
                )}

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, limit } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo } from 'react';
+import { collection, query, orderBy, onSnapshot, limit, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/firebaseConfig';
-import { Activity, Clock } from 'lucide-react';
+import { Activity, Clock, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const formatDate = (ts) => {
   if (!ts) return '-';
@@ -12,6 +12,7 @@ const formatDate = (ts) => {
 export const AktivitasPage = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     // Listen to the last 200 activity logs
@@ -23,6 +24,24 @@ export const AktivitasPage = () => {
     });
     return unsubscribe;
   }, []);
+
+  const handleHideLog = async (logId) => {
+    if (!window.confirm('Sembunyikan log ini dari tampilan? Kinerja pekerja tidak akan terpengaruh.')) return;
+    try {
+      await updateDoc(doc(db, 'activity_logs', logId), { isHidden: true });
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menyembunyikan log');
+    }
+  };
+
+  const visibleLogs = useMemo(() => logs.filter(l => !l.isHidden), [logs]);
+  const totalPages = Math.max(1, Math.ceil(visibleLogs.length / 5));
+  const paginatedLogs = useMemo(() => visibleLogs.slice((page - 1) * 5, page * 5), [visibleLogs, page]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(Math.max(1, totalPages));
+  }, [totalPages, page]);
 
   return (
     <div className="w-full max-w-[1400px] mb-10 pb-20 md:pb-0 space-y-6">
@@ -58,10 +77,11 @@ export const AktivitasPage = () => {
                     <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Nama Akun</th>
                     <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Aktivitas</th>
                     <th className="text-left px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Keterangan</th>
+                    <th className="text-right px-6 py-4 text-xs font-bold text-[#646A66] uppercase tracking-wider">Hapus</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {logs.map(log => {
+                  {paginatedLogs.map(log => {
                     const accountName = log.user_email ? log.user_email.split('@')[0] : 'System';
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/60 transition-colors">
@@ -91,11 +111,28 @@ export const AktivitasPage = () => {
                             {log.details || '-'}
                           </p>
                         </td>
+                        <td className="px-6 py-4 text-right">
+                          <button onClick={() => handleHideLog(log.id)} className="text-slate-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors" title="Sembunyikan log">
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+          
+          {!loading && visibleLogs.length > 5 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+              <span className="text-xs font-bold text-[#646A66]">
+                Halaman {page} dari {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="p-2 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-[#1A1D1B] disabled:opacity-50 transition-colors"><ChevronLeft size={16}/></button>
+                <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="p-2 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-[#1A1D1B] disabled:opacity-50 transition-colors"><ChevronRight size={16}/></button>
+              </div>
             </div>
           )}
         </div>

@@ -88,6 +88,9 @@ export async function seedDummyData() {
     }
 
     const orderRef = doc(collection(db, 'orders'));
+    const costPerUnit = Math.round(product.basePrice * 0.65);
+    const orderProfit = Math.max(0, totalPrice - costPerUnit * qty);
+
     batch.set(orderRef, {
       customer_name:  randomItem(CUSTOMERS),
       customer_phone: `08${randomBetween(100000000, 999999999)}`,
@@ -95,11 +98,13 @@ export async function seedDummyData() {
       product_unit:   product.unit,
       category:       product.category,
       quantity:       qty,
+      product_cost_per_unit: costPerUnit,
       total_price:    totalPrice,
+      profit:         orderProfit,
       dp_amount:      dpAmount,
       status,
       notes:          i % 4 === 0 ? 'Tolong dikerjakan cepat, deadline mepet.' : '',
-      cs_email:       'cs@trigara.com',
+      cs_email:       'cs@tiga-warna.com',
       created_at:     createdAt,
       updated_at:     createdAt,
     });
