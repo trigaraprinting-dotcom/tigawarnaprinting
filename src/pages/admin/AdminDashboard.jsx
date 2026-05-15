@@ -12,16 +12,20 @@ import {
   TrendingUp, TrendingDown, Users, ShoppingBag, PackageCheck,
   RefreshCw, ArrowUpRight, Activity, ChevronRight, BarChart2,
   Trophy, Medal, Crown, Tag, Sun, Moon, Sunrise,
-  DollarSign, CheckCircle, UserCheck, Layers,
+  DollarSign, CheckCircle, UserCheck, Layers, Info
 } from 'lucide-react';
+import { Modal } from '../../components/Modal';
 
 // ─── Helpers ────────────────────────────────────────────────────
 const formatRupiah = (val) => {
   if (!val || val === 0) return 'Rp 0';
-  if (val >= 1_000_000_000) return `Rp ${(val / 1_000_000_000).toFixed(1)}M`;
-  if (val >= 1_000_000) return `Rp ${(val / 1_000_000).toFixed(1)}jt`;
-  if (val >= 1_000) return `Rp ${(val / 1_000).toFixed(0)}rb`;
-  return `Rp ${val}`;
+  const isNegative = val < 0;
+  const absVal = Math.abs(val);
+  const sign = isNegative ? '-Rp\u00A0' : 'Rp\u00A0';
+  if (absVal >= 1_000_000_000) return `${sign}${(absVal / 1_000_000_000).toFixed(1)}M`;
+  if (absVal >= 1_000_000) return `${sign}${(absVal / 1_000_000).toFixed(1)}jt`;
+  if (absVal >= 1_000) return `${sign}${(absVal / 1_000).toFixed(0)}rb`;
+  return `${sign}${absVal}`;
 };
 
 const formatRupiahFull = (val) =>
@@ -111,6 +115,8 @@ export const AdminDashboard = () => {
   const [filterStart, setFilterStart] = useState(() => formatInputDate(new Date(Date.now() - 29 * 86400000)));
   const [filterEnd, setFilterEnd] = useState(() => formatInputDate(new Date()));
   const [logs, setLogs] = useState([]);
+  const [pengeluaranData, setPengeluaranData] = useState([]);
+  const [showHppModal, setShowHppModal] = useState(false);
 
   const applyPreset = (value) => {
     const today = new Date();
@@ -143,6 +149,14 @@ export const AdminDashboard = () => {
     const q = query(collection(db, 'activity_logs'), orderBy('created_at', 'desc'), limit(1000));
     const unsub = onSnapshot(q, (snap) => {
       setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, 'pengeluaran'), orderBy('tanggal', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setPengeluaranData(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return unsub;
   }, []);
@@ -273,10 +287,12 @@ export const AdminDashboard = () => {
     let totalProfit = 0;
     let prevOmzet = 0;
     let totalPengeluaran = 0;
+    let totalPengeluaranManual = 0;
     let clientSet = new Set();
     let activeCount = 0;
     let selesaiCount = 0;
     const chartDataMap = {};
+    const hppBreakdownMap = {};
 
     const addEvent = (date, amount, orderProfit, totalPrice) => {
       if (!date || amount <= 0) return;
@@ -317,14 +333,29 @@ export const AdminDashboard = () => {
         
         // Pengeluaran: hitung semua pesanan yg tidak dibatalkan
         if (o.status !== ORDER_STATUS.REJECTED && o.status !== 'rejected') {
-          totalPengeluaran += (costPerUnit * quantity);
+          const hpp = costPerUnit * quantity;
+          totalPengeluaran += hpp;
+          
+          if (hpp > 0) {
+            const name = o.product_name || 'Tidak Diketahui';
+            if (!hppBreakdownMap[name]) hppBreakdownMap[name] = { name, count: 0, totalHpp: 0 };
+            hppBreakdownMap[name].count += quantity;
+            hppBreakdownMap[name].totalHpp += hpp;
+          }
         }
       }
 
       const totalPrice = Number(o.total_price || 0);
       const sellPrice = Number(o.product_sell_price || 0);
-      const defaultProfit = (sellPrice - costPerUnit) * quantity;
-      const orderProfit = Number(o.profit ?? defaultProfit ?? (totalPrice - costPerUnit * quantity));
+      
+      let orderProfit = 0;
+      if (o.profit !== undefined && o.profit !== null) {
+        orderProfit = Number(o.profit);
+      } else if (sellPrice > 0) {
+        orderProfit = (sellPrice - costPerUnit) * quantity;
+      } else {
+        orderProfit = totalPrice - (costPerUnit * quantity);
+      }
       const dpAmount = Number(o.dp_amount || 0);
       const remaining = Math.max(0, totalPrice - dpAmount);
 
@@ -336,6 +367,28 @@ export const AdminDashboard = () => {
         addEvent(o.paid_at, paidAmount, orderProfit, totalPrice);
       }
     });
+
+    pengeluaranData.forEach(p => {
+      const pDate = p.tanggal?.toDate ? p.tanggal.toDate() : new Date(p.tanggal);
+      if (inRange(pDate)) {
+        const amt = Number(p.jumlah) || 0;
+        totalPengeluaranManual += amt;
+        
+        // Kurangi profit harian di grafik
+        const dateStr = startDate && endDate && filterPeriod === 'Hari Ini'
+          ? `${pDate.getHours().toString().padStart(2, '0')}:00`
+          : pDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+
+        if (!chartDataMap[dateStr]) {
+          chartDataMap[dateStr] = { name: dateStr, omzet: 0, profit: 0, ms: pDate.getTime() };
+        }
+        chartDataMap[dateStr].profit -= amt;
+      }
+    });
+
+    totalPengeluaran += totalPengeluaranManual;
+    const grossProfit = totalProfit;
+    totalProfit -= totalPengeluaranManual;
 
     const growth = prevOmzet > 0 ? ((totalOmzet - prevOmzet) / prevOmzet * 100) : null;
     const sortedChart = Object.values(chartDataMap).sort((a, b) => a.ms - b.ms);
@@ -355,7 +408,8 @@ export const AdminDashboard = () => {
       totalOmzet,
       omzetLabel: formatRupiah(totalOmzet),
       totalProfit,
-      profitLabel: formatRupiahFull(totalProfit),
+      profitLabel: formatRupiah(totalProfit),
+      grossProfitLabel: formatRupiah(grossProfit),
       growth,
       pengeluaranLabel: formatRupiah(totalPengeluaran),
       klienCount: clientSet.size,
@@ -365,8 +419,9 @@ export const AdminDashboard = () => {
       chartData: sortedChart.length > 0 ? sortedChart : [{ name: 'Belum Ada', omzet: 0, profit: 0 }],
       recentOrders,
       statusCounts,
+      hppBreakdown: Object.values(hppBreakdownMap).sort((a,b) => b.totalHpp - a.totalHpp),
     };
-  }, [orders, filteredOrders, filterPeriod, filterStart, filterEnd]);
+  }, [orders, filteredOrders, filterPeriod, filterStart, filterEnd, pengeluaranData]);
 
   const userName = user?.email?.split('@')[0] || 'Admin';
   const hour = new Date().getHours();
@@ -624,16 +679,39 @@ export const AdminDashboard = () => {
             <ProductionStatusBreakdown statusCounts={stats.statusCounts} total={stats.totalPesanan} />
           </div>
 
+          {/* Laba Kotor card */}
+          <div className="bg-gradient-to-br from-[#347B5A] to-[#255C42] rounded-[1.75rem] p-5 text-white relative overflow-hidden shadow-xl shadow-[#347B5A]/25">
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp size={14} className="text-white/70" />
+                <p className="text-[12px] font-semibold text-white/80">Laba Kotor</p>
+              </div>
+              <h3 className="text-2xl font-extrabold tracking-tight">{stats.grossProfitLabel}</h3>
+              <p className="text-[11px] font-medium text-white/60 mt-2">
+                Omzet dikurangi HPP (Modal Produk)
+              </p>
+            </div>
+            <svg className="absolute bottom-4 right-2 w-44 h-20 stroke-white/10" fill="none" strokeWidth="3" strokeLinecap="round">
+              <path d="M0,35 Q20,15 40,35 T80,35 T120,25 T176,38" />
+            </svg>
+            <div className="absolute -top-6 -right-6 w-28 h-28 bg-white/5 rounded-full" />
+          </div>
+
           {/* Pengeluaran card */}
           <div className="bg-gradient-to-br from-[#e05a5a] to-[#c94949] rounded-[1.75rem] p-5 text-white relative overflow-hidden shadow-xl shadow-red-500/25">
             <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingDown size={14} className="text-white/70" />
-                <p className="text-[12px] font-semibold text-white/80">Pengeluaran (HPP)</p>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <TrendingDown size={14} className="text-white/70" />
+                  <p className="text-[12px] font-semibold text-white/80">Pengeluaran (HPP)</p>
+                </div>
+                <button onClick={() => setShowHppModal(true)} className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" title="Lihat Rincian HPP">
+                  <Info size={14} className="text-white" />
+                </button>
               </div>
               <h3 className="text-2xl font-extrabold tracking-tight">{stats.pengeluaranLabel}</h3>
               <p className="text-[11px] font-medium text-white/60 mt-2">
-                Beban modal pesanan tidak batal
+                Beban modal pesanan & pengeluaran manual
               </p>
             </div>
             <svg className="absolute bottom-4 right-2 w-44 h-20 stroke-white/10" fill="none" strokeWidth="3" strokeLinecap="round">
@@ -733,6 +811,51 @@ export const AdminDashboard = () => {
           </table>
         </div>
       </div>
+
+      <Modal open={showHppModal} onClose={() => setShowHppModal(false)} title="Rincian Modal Pesanan (HPP)" size="md">
+        <div className="space-y-4">
+          <p className="text-sm text-[#646A66] font-medium leading-relaxed">
+            Berikut adalah rincian total Harga Pokok Penjualan (HPP) dari barang-barang yang dipesan dalam periode ini. Ini merepresentasikan <b>modal dasar</b> untuk produksi barang.
+          </p>
+          {stats.hppBreakdown.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm font-semibold text-[#646A66]">Belum ada data pesanan (HPP) di periode ini.</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+              <div className="max-h-[400px] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-[11px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Produk</th>
+                      <th className="text-right px-4 py-3 text-[11px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Qty Terjual</th>
+                      <th className="text-right px-4 py-3 text-[11px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Total HPP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.hppBreakdown.map((item, i) => (
+                      <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
+                        <td className="px-4 py-3 font-bold text-[#1A1D1B]">{item.name}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#646A66]">{item.count}x</td>
+                        <td className="px-4 py-3 text-right font-extrabold text-[#e05a5a]">{formatRupiahFull(item.totalHpp)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-50 sticky bottom-0 border-t border-slate-200">
+                    <tr>
+                      <td colSpan={2} className="px-4 py-3 text-right font-extrabold text-[#1A1D1B]">TOTAL HPP PRODUKSI</td>
+                      <td className="px-4 py-3 text-right font-extrabold text-[#e05a5a]">
+                        {formatRupiahFull(stats.hppBreakdown.reduce((acc, curr) => acc + curr.totalHpp, 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
     </div>
   );
 };

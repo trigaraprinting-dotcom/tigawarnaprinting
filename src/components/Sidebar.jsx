@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ListOrdered, Users, FileText, Settings, 
   ClipboardCheck, Receipt, Printer, LogOut,
   ChevronRight, ChevronLeft, Tags, Activity, PlusCircle, Box,
-  Sun, Moon
+  Sun, Moon, Wallet
 } from 'lucide-react';
 import clsx from 'clsx';
 import { logout } from '../firebase/auth';
@@ -38,6 +38,7 @@ export const Sidebar = () => {
       { path: '/admin/users',        icon: Users,           label: 'User'   },
       { path: '/admin/kategori',     icon: Tags,            label: 'Kategori'    },
       { path: '/admin/laporan',      icon: FileText,        label: 'Laporan'     },
+      { path: '/admin/pengeluaran',  icon: Wallet,          label: 'Pengeluaran' },
       { path: '/admin/kinerja-pekerja', icon: Activity,      label: 'Kinerja' },
     ],
     customer_service: [
@@ -77,6 +78,7 @@ export const Sidebar = () => {
 
   const adminLaporanItems = [
     menuItems.admin.find(i => i.path === '/admin/laporan'),
+    menuItems.admin.find(i => i.path === '/admin/pengeluaran'),
     menuItems.admin.find(i => i.path === '/admin/kinerja-pekerja'),
   ].filter(Boolean);
 

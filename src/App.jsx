@@ -14,6 +14,7 @@ import { KategoriPage }    from './pages/admin/KategoriPage';
 import { LaporanPage }     from './pages/admin/LaporanPage';
 import { PengaturanPage }  from './pages/admin/PengaturanPage';
 import { KinerjaPekerjaPage } from './pages/admin/KinerjaPekerjaPage';
+import { PengeluaranPage }    from './pages/admin/PengeluaranPage';
 
 // Role-specific pages
 import { CSDashboard }        from './pages/cs/CSDashboard';
@@ -84,6 +85,7 @@ function App() {
                 <Route path="kategori"   element={<KategoriPage />} />
                 <Route path="laporan"    element={<LaporanPage />} />
                 <Route path="kinerja-pekerja" element={<KinerjaPekerjaPage />} />
+                <Route path="pengeluaran" element={<PengeluaranPage />} />
                 <Route path="pengaturan" element={<PengaturanPage />} />
               </Route>
 
