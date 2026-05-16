@@ -11,7 +11,7 @@ export const PengaturanPage = () => {
     nama: 'Tiga Warna Print Management',
     alamat: 'Jl. Contoh No. 123, Kota Anda',
     whatsapp: '081234567890',
-    email: 'info@tiga-warna.com',
+    email: 'info@gmail.com',
   });
 
   const [passForm, setPassForm] = useState({ current: '', new: '', confirm: '' });

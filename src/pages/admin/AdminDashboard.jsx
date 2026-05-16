@@ -4,10 +4,8 @@ import { ORDER_STATUS } from '../../firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase/firebaseConfig';
 import { collection, query, orderBy, onSnapshot, limit } from 'firebase/firestore';
-import {
-  AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
-} from 'recharts';
-import { seedDummyData } from '../../utils/seedDummyData';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
+import { seedDummyData, clearDummyData } from '../../utils/seedDummyData';
 import {
   TrendingUp, TrendingDown, Users, ShoppingBag, PackageCheck,
   RefreshCw, ArrowUpRight, Activity, ChevronRight, BarChart2,
@@ -107,7 +105,7 @@ const RankIcon = ({ rank }) => {
 
 // ─── Main Component ──────────────────────────────────────────────
 export const AdminDashboard = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { orders, loading } = useOrdersSnapshot({});
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState('');
@@ -166,6 +164,20 @@ export const AdminDashboard = () => {
     try {
       const count = await seedDummyData();
       setSeedMsg(`${count} pesanan dummy berhasil!`);
+      setTimeout(() => setSeedMsg(''), 5000);
+    } catch (e) {
+      setSeedMsg('Gagal: ' + e.message);
+    }
+    setSeeding(false);
+  };
+
+  const handleClear = async () => {
+    if(!window.confirm("Yakin ingin menghapus seluruh data transaksi (Pesanan, Pengeluaran, Log)?\n\nMaster data seperti Kategori, Produk, dan User akan tetap aman. Aksi ini tidak dapat dibatalkan.")) return;
+    setSeeding(true);
+    setSeedMsg('Membersihkan data...');
+    try {
+      const deleted = await clearDummyData();
+      setSeedMsg(`${deleted} dokumen berhasil dihapus!`);
       setTimeout(() => setSeedMsg(''), 5000);
     } catch (e) {
       setSeedMsg('Gagal: ' + e.message);
@@ -348,14 +360,7 @@ export const AdminDashboard = () => {
       const totalPrice = Number(o.total_price || 0);
       const sellPrice = Number(o.product_sell_price || 0);
       
-      let orderProfit = 0;
-      if (o.profit !== undefined && o.profit !== null) {
-        orderProfit = Number(o.profit);
-      } else if (sellPrice > 0) {
-        orderProfit = (sellPrice - costPerUnit) * quantity;
-      } else {
-        orderProfit = totalPrice - (costPerUnit * quantity);
-      }
+      let orderProfit = (sellPrice - costPerUnit) * quantity;
       const dpAmount = Number(o.dp_amount || 0);
       const remaining = Math.max(0, totalPrice - dpAmount);
 
@@ -382,13 +387,14 @@ export const AdminDashboard = () => {
         if (!chartDataMap[dateStr]) {
           chartDataMap[dateStr] = { name: dateStr, omzet: 0, profit: 0, ms: pDate.getTime() };
         }
-        chartDataMap[dateStr].profit -= amt;
+        // NOTE: We do not subtract pengeluaran manual from daily profit chart yet per user request.
+        // chartDataMap[dateStr].profit -= amt;
       }
     });
 
     totalPengeluaran += totalPengeluaranManual;
     const grossProfit = totalProfit;
-    totalProfit -= totalPengeluaranManual;
+    // totalProfit -= totalPengeluaranManual; // Disabled per user request
 
     const growth = prevOmzet > 0 ? ((totalOmzet - prevOmzet) / prevOmzet * 100) : null;
     const sortedChart = Object.values(chartDataMap).sort((a, b) => a.ms - b.ms);
@@ -449,11 +455,26 @@ export const AdminDashboard = () => {
               {greeting}, <span className="text-[#607d6e] capitalize">{userName}</span>
             </h1>
           </div>
-          <p className="text-sm font-medium text-[#646A66] mt-0.5 ml-8">
-            Ringkasan untuk {rangeLabel}.
-          </p>
+          <div className="flex items-center gap-4 mt-1.5 ml-8">
+            <p className="text-sm font-medium text-[#646A66]">
+              Ringkasan untuk {rangeLabel}.
+            </p>
+            {seedMsg && <span className="text-xs font-bold text-[#e05a5a] bg-red-50 px-3 py-1 rounded-full">{seedMsg}</span>}
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          {/* {role === 'admin' && (
+             <button 
+                onClick={handleClear} 
+                disabled={seeding}
+                className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 rounded-xl font-bold text-xs transition-colors shrink-0 border border-red-100 disabled:opacity-50"
+                title="Hapus Pesanan, Pengeluaran, & Log"
+             >
+                <RefreshCw size={14} className={seeding ? 'animate-spin' : ''} />
+                {seeding ? 'Memproses...' : 'Kosongkan Transaksi'}
+             </button>
+          )} */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full sm:w-auto">
             <label className="flex flex-col gap-2 text-xs text-[#1A1D1B] font-semibold">
               Dari
               <input
@@ -473,6 +494,7 @@ export const AdminDashboard = () => {
               />
             </label>
           </div>
+        </div>
       </div>
 
       {/* ── Main 2-Column Layout ──────────────────────────── */}
@@ -680,7 +702,7 @@ export const AdminDashboard = () => {
           </div>
 
           {/* Laba Kotor card */}
-          <div className="bg-gradient-to-br from-[#347B5A] to-[#255C42] rounded-[1.75rem] p-5 text-white relative overflow-hidden shadow-xl shadow-[#347B5A]/25">
+          {/* <div className="bg-gradient-to-br from-[#347B5A] to-[#255C42] rounded-[1.75rem] p-5 text-white relative overflow-hidden shadow-xl shadow-[#347B5A]/25">
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-1">
                 <TrendingUp size={14} className="text-white/70" />
@@ -695,7 +717,7 @@ export const AdminDashboard = () => {
               <path d="M0,35 Q20,15 40,35 T80,35 T120,25 T176,38" />
             </svg>
             <div className="absolute -top-6 -right-6 w-28 h-28 bg-white/5 rounded-full" />
-          </div>
+          </div> */}
 
           {/* Pengeluaran card */}
           <div className="bg-gradient-to-br from-[#e05a5a] to-[#c94949] rounded-[1.75rem] p-5 text-white relative overflow-hidden shadow-xl shadow-red-500/25">

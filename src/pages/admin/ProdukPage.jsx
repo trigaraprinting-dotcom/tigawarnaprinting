@@ -18,6 +18,7 @@ export const ProdukPage = () => {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [msg, setMsg] = useState('');
+  const [deleteProduct, setDeleteProduct] = useState(null);
 
   const [form, setForm] = useState({
     nama: '',
@@ -119,15 +120,20 @@ export const ProdukPage = () => {
     setTimeout(() => setMsg(''), 3000);
   };
 
-  const handleDelete = async (prod) => {
-    if (!window.confirm(`Hapus barang "${prod.nama}"?`)) return;
+  const confirmDelete = (prod) => {
+    setDeleteProduct(prod);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteProduct) return;
     try {
-      await updateDoc(doc(db, 'produk', prod.id), { deleted: true });
-      setMsg(`Barang "${prod.nama}" dihapus.`);
+      await updateDoc(doc(db, 'produk', deleteProduct.id), { deleted: true });
+      setMsg(`Barang "${deleteProduct.nama}" dihapus.`);
       setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       alert('Gagal menghapus: ' + err.message);
     }
+    setDeleteProduct(null);
   };
 
   const filteredProducts = products.filter(p => 
@@ -232,7 +238,7 @@ export const ProdukPage = () => {
                           <button onClick={() => openEdit(p)} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-[#646A66] transition-colors">
                             <Edit2 size={14} />
                           </button>
-                          <button onClick={() => handleDelete(p)} className="w-8 h-8 rounded-xl bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-500 transition-colors">
+                          <button onClick={() => confirmDelete(p)} className="w-8 h-8 rounded-xl bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-500 transition-colors">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -376,6 +382,19 @@ export const ProdukPage = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!deleteProduct} onClose={() => setDeleteProduct(null)} title="Konfirmasi Hapus" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-[#646A66] font-medium leading-relaxed">
+            Apakah Anda yakin ingin menghapus barang <span className="font-bold text-[#1A1D1B]">"{deleteProduct?.nama}"</span>? Data yang dihapus tidak dapat dikembalikan.
+          </p>
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <button onClick={() => setDeleteProduct(null)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-[#1A1D1B] font-bold rounded-xl transition-colors text-sm">Batal</button>
+            <button onClick={executeDelete} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors text-sm shadow-lg shadow-red-500/25">Hapus Barang</button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -5,8 +5,8 @@ import { Eye, EyeOff } from 'lucide-react';
 
 export const Login = () => {
   // Pre-filled admin credentials
-  const [email, setEmail] = useState('admin@tiga-warna.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,7 +85,7 @@ export const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-5 py-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#7B3DF6]/20 focus:border-[#7B3DF6] outline-none transition-all text-[15px] font-medium text-slate-700 placeholder-slate-400 bg-white"
-                  placeholder="admin@tiga-warna.com"
+                  placeholder="admin@gmail.com"
                   required 
                 />
               </div>

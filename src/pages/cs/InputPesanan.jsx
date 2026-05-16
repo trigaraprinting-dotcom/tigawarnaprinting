@@ -166,6 +166,7 @@ export const InputPesanan = () => {
         status: (Number(form.dp_amount) || 0) > 0 ? 'awaiting_dp' : 'pending',
         notes: form.notes,
         cs_email: user?.email || 'Unknown',
+        dimension_unit: form.product_jenis_ukuran === 'Centimeter (cm)' ? 'cm' : 'm',
       });
       setAddMsg('✓ Pesanan berhasil ditambahkan!');
       setTimeout(() => {
@@ -238,7 +239,7 @@ export const InputPesanan = () => {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-              <FormField label="Harga Dasar Barang (Rp) *" isPrice value={form.harga_satuan} onChange={v => handleFieldChange('harga_satuan', v)} required />
+              <FormField label="Harga Dasar Barang (Rp) *" isPrice value={form.harga_satuan} onChange={v => handleFieldChange('harga_satuan', v)} required disabled />
               <FormField label="Jumlah Barang *" type="number" min="1" value={form.quantity} onChange={v => handleFieldChange('quantity', v)} required />
             </div>
 
@@ -373,7 +374,7 @@ export const InputPesanan = () => {
   );
 };
 
-const FormField = ({ label, type = 'text', value, onChange, required, min, maxLength, placeholder, isPrice }) => {
+const FormField = ({ label, type = 'text', value, onChange, required, min, maxLength, placeholder, isPrice, disabled }) => {
   const displayValue = isPrice && value ? Number(value).toLocaleString('id-ID') : value;
 
   return (
@@ -396,8 +397,9 @@ const FormField = ({ label, type = 'text', value, onChange, required, min, maxLe
             }
           }}
           required={required}
+          disabled={disabled}
           placeholder={placeholder}
-          className={`w-full ${isPrice ? 'pl-10 pr-4' : 'px-4'} py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#607d6e] focus:bg-white focus:ring-0 outline-none text-sm font-semibold text-[#1A1D1B] transition-all placeholder-slate-400`}
+          className={`w-full ${isPrice ? 'pl-10 pr-4' : 'px-4'} py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#607d6e] focus:bg-white focus:ring-0 outline-none text-sm font-semibold text-[#1A1D1B] transition-all placeholder-slate-400 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed`}
         />
       </div>
     </div>

@@ -45,6 +45,7 @@ export const PengeluaranPage = () => {
   
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [deleteItem, setDeleteItem] = useState(null);
 
   const canManage = ['admin'].includes(role);
 
@@ -114,15 +115,20 @@ export const PengeluaranPage = () => {
     setTimeout(() => setMsg(''), 3000);
   };
 
-  const handleDelete = async (item) => {
-    if (!window.confirm(`Hapus pengeluaran "${item.deskripsi}"?`)) return;
+  const confirmDelete = (item) => {
+    setDeleteItem(item);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteItem) return;
     try {
-      await deleteDoc(doc(db, 'pengeluaran', item.id));
+      await deleteDoc(doc(db, 'pengeluaran', deleteItem.id));
       setMsg(`Pengeluaran dihapus.`);
       setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       alert("Gagal menghapus: " + err.message);
     }
+    setDeleteItem(null);
   };
 
   const totalPengeluaran = pengeluaran.reduce((acc, curr) => acc + (Number(curr.jumlah) || 0), 0);
@@ -227,7 +233,7 @@ export const PengeluaranPage = () => {
                             <Edit2 size={14} />
                           </button>
                           <button
-                            onClick={() => handleDelete(item)}
+                            onClick={() => confirmDelete(item)}
                             className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-500"
                             title="Hapus"
                           >
@@ -306,6 +312,19 @@ export const PengeluaranPage = () => {
             {saving ? 'Menyimpan...' : editItem ? 'Simpan Perubahan' : 'Tambah Pengeluaran'}
           </button>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!deleteItem} onClose={() => setDeleteItem(null)} title="Konfirmasi Hapus" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-[#646A66] font-medium leading-relaxed">
+            Apakah Anda yakin ingin menghapus pengeluaran <span className="font-bold text-[#1A1D1B]">"{deleteItem?.deskripsi}"</span>? Data yang dihapus tidak dapat dikembalikan.
+          </p>
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <button onClick={() => setDeleteItem(null)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-[#1A1D1B] font-bold rounded-xl transition-colors text-sm">Batal</button>
+            <button onClick={executeDelete} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors text-sm shadow-lg shadow-red-500/25">Hapus Pengeluaran</button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

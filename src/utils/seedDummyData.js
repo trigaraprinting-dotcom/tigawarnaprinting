@@ -115,3 +115,36 @@ export async function seedDummyData() {
   await batch.commit();
   return count;
 }
+
+export async function clearDummyData() {
+  const collectionsToClear = ['orders', 'pengeluaran', 'activity_logs'];
+  let totalDeleted = 0;
+
+  for (const colName of collectionsToClear) {
+    const colRef = collection(db, colName);
+    const snapshot = await getDocs(colRef);
+    
+    const batches = [];
+    let batch = writeBatch(db);
+    let count = 0;
+
+    snapshot.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+      count++;
+      totalDeleted++;
+      if (count === 490) { // Limit firestore batch to 500
+        batches.push(batch.commit());
+        batch = writeBatch(db);
+        count = 0;
+      }
+    });
+
+    if (count > 0) {
+      batches.push(batch.commit());
+    }
+
+    await Promise.all(batches);
+  }
+
+  return totalDeleted;
+}

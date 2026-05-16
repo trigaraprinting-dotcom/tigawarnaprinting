@@ -98,13 +98,20 @@ export const KinerjaPekerjaPage = () => {
         const qty = Number(o.quantity || 0);
         const p = Number(o.panjang || 0);
         const l = Number(o.lebar || 0);
-        const area = (p > 0 && l > 0) ? (p * l * qty) : 0;
+        
+        let pM = p;
+        let lM = l;
+        if (o.dimension_unit === 'cm' || (o.dimension_unit !== 'm' && (p > 30 || l > 30))) {
+          pM = p / 100;
+          lM = l / 100;
+        }
+        const area = (pM > 0 && lM > 0) ? (pM * lM * qty) : 0;
 
         pMap[pEmail].total_qty += qty;
         pMap[pEmail].total_area += area;
 
         const prodName = o.product_name || 'Produk Lainnya';
-        const dimStr = (p > 0 && l > 0) ? `${p}m x ${l}m` : '-';
+        const dimStr = (p > 0 && l > 0) ? `${p} ${o.dimension_unit || (p > 30 || l > 30 ? 'cm' : 'm')} x ${l} ${o.dimension_unit || (p > 30 || l > 30 ? 'cm' : 'm')}` : '-';
         const itemKey = `${prodName}_${dimStr}`;
 
         if (!pMap[pEmail].items[itemKey]) {
