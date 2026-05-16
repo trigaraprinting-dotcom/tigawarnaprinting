@@ -104,14 +104,8 @@ export const KasirDashboard = () => {
       dp_change_amount: change,
     });
 
-    handlePrint({
-      ...selectedOrderDP,
-      status: 'pending',
-      dp_amount: dpAmount,
-      dp_payment_type: tipeBayar,
-      dp_amount_received: received,
-      dp_change_amount: change,
-    });
+    // Struk tidak dicetak otomatis setelah konfirmasi DP.
+    // Kasir dapat mencetak manual via tombol printer di tabel jika diperlukan.
 
     setSelectedOrderDP(null);
     setDpInput('');

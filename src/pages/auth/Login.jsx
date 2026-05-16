@@ -1,30 +1,80 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, loginWithGoogle } from '../../firebase/auth';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Clock, ShieldOff } from 'lucide-react';
+
+// Format detik → HH:MM:SS
+function formatCountdown(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 export const Login = () => {
-  // Pre-filled admin credentials
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail]               = useState('');
+  const [password, setPassword]         = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  
+  const [error, setError]               = useState('');
+  const [loading, setLoading]           = useState(false);
+  const [rememberMe, setRememberMe]     = useState(true);
+  const [accountStatus, setAccountStatus] = useState(null); // { reason, email, lockedUntil? }
+  const [timeLeft, setTimeLeft]         = useState(0); // detik tersisa
+
   const navigate = useNavigate();
+
+  // Cek localStorage saat komponen mount
+  useEffect(() => {
+    const raw = localStorage.getItem('trigara_account_status');
+    if (!raw) return;
+    try {
+      const status = JSON.parse(raw);
+      if (status.reason === 'deleted') {
+        const remaining = Math.ceil((status.lockedUntil - Date.now()) / 1000);
+        if (remaining <= 0) {
+          localStorage.removeItem('trigara_account_status');
+          return;
+        }
+        setAccountStatus(status);
+        setTimeLeft(remaining);
+      } else {
+        setAccountStatus(status);
+      }
+    } catch {
+      localStorage.removeItem('trigara_account_status');
+    }
+  }, []);
+
+  // Countdown timer
+  useEffect(() => {
+    if (!accountStatus || accountStatus.reason !== 'deleted' || timeLeft <= 0) return;
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          localStorage.removeItem('trigara_account_status');
+          setAccountStatus(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [accountStatus, timeLeft]);
+
+  const isCooldownActive = accountStatus?.reason === 'deleted' && timeLeft > 0;
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (isCooldownActive) return;
     setError('');
     setLoading(true);
     try {
       await login(email, password);
+      localStorage.removeItem('trigara_account_status');
       navigate('/');
     } catch (err) {
-      setError(
-          err.message || 'Login failed. Pastikan Firebase Anda sudah dikonfigurasi dan akun ini ada.'
-      );
+      setError(err.message || 'Login gagal. Periksa email dan password Anda.');
     } finally {
       setLoading(false);
     }
@@ -69,6 +119,54 @@ export const Login = () => {
               Masuk untuk melanjutkan
             </p>
             
+            {/* Banner: Akun Dihapus + Cooldown */}
+            {accountStatus?.reason === 'deleted' && timeLeft > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl mt-6 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                  <div className="w-9 h-9 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
+                    <ShieldOff size={18} className="text-red-500" />
+                  </div>
+                  <div>
+                    <p className="text-red-700 font-bold text-sm">Akun Dihapus oleh Admin</p>
+                    <p className="text-red-500 text-xs font-medium mt-0.5">{accountStatus.email}</p>
+                  </div>
+                </div>
+                <div className="bg-red-100/60 mx-3 mb-3 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <Clock size={16} className="text-red-500 shrink-0" />
+                  <div>
+                    <p className="text-red-600 text-xs font-semibold">Anda dapat login kembali dalam:</p>
+                    <p className="text-red-700 font-extrabold text-xl tracking-widest mt-0.5 font-mono">
+                      {formatCountdown(timeLeft)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Banner: Akun Nonaktif */}
+            {accountStatus?.reason === 'inactive' && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl mt-6 p-4 flex items-start gap-3">
+                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                  <ShieldOff size={18} className="text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-amber-800 font-bold text-sm">Akun Dinonaktifkan</p>
+                  <p className="text-amber-600 text-xs font-medium mt-1 leading-relaxed">
+                    Akun <b>{accountStatus.email}</b> telah dinonaktifkan oleh Admin.
+                    Hubungi administrator untuk informasi lebih lanjut.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { localStorage.removeItem('trigara_account_status'); setAccountStatus(null); }}
+                    className="text-amber-700 text-xs font-bold underline mt-2 hover:text-amber-900"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Error login biasa */}
             {error && (
               <div className="bg-red-50 text-red-600 p-3.5 rounded-xl mt-6 text-sm border border-red-100 font-medium flex items-start gap-2">
                 <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -128,10 +226,10 @@ export const Login = () => {
               <div className="pt-2">
                   <button 
                     type="submit" 
-                    disabled={loading}
-                    className="w-full bg-[#7B3DF6] hover:bg-[#682ae3] active:bg-[#5b1fc9] text-white font-semibold py-3.5 px-10 rounded-xl transition-all shadow-[0_8px_20px_-4px_rgba(123,61,246,0.4)] disabled:opacity-70 disabled:shadow-none"
+                    disabled={loading || isCooldownActive}
+                    className="w-full bg-[#7B3DF6] hover:bg-[#682ae3] active:bg-[#5b1fc9] text-white font-semibold py-3.5 px-10 rounded-xl transition-all shadow-[0_8px_20px_-4px_rgba(123,61,246,0.4)] disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed"
                   >
-                    {loading ? 'Masuk...' : 'Masuk'}
+                    {isCooldownActive ? `Tunggu ${formatCountdown(timeLeft)}` : loading ? 'Masuk...' : 'Masuk'}
                   </button>
               </div>
 

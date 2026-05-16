@@ -463,7 +463,7 @@ export const AdminDashboard = () => {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          {/* {role === 'admin' && (
+          {role === 'admin' && (
              <button 
                 onClick={handleClear} 
                 disabled={seeding}
@@ -473,7 +473,7 @@ export const AdminDashboard = () => {
                 <RefreshCw size={14} className={seeding ? 'animate-spin' : ''} />
                 {seeding ? 'Memproses...' : 'Kosongkan Transaksi'}
              </button>
-          )} */}
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full sm:w-auto">
             <label className="flex flex-col gap-2 text-xs text-[#1A1D1B] font-semibold">
               Dari

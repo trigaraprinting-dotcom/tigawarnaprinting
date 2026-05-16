@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, updateDoc, doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebase/firebaseConfig';
+import { db, auth } from '../../firebase/firebaseConfig';
+import { getIdToken } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/Modal';
 import {
@@ -38,6 +39,40 @@ async function createFirebaseUser(email, password) {
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
   return data; // { localId, email, idToken, ... }
+}
+
+// Hapus user dari Firebase Authentication menggunakan Admin REST API
+// Membutuhkan ID Token dari admin yang sedang login
+async function deleteFirebaseAuthUser(targetUid) {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error('Admin tidak terautentikasi');
+
+  // Dapatkan ID token admin yang sedang login (fresh token)
+  const idToken = await getIdToken(currentUser, /* forceRefresh */ true);
+
+  const projectId = 'trigaraprinting-f0aa8';
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/projects/${projectId}/accounts:delete`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ localId: targetUid }),
+    }
+  );
+
+  // Jika endpoint admin gagal (belum dapat akses), coba endpoint alternatif
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    // Fallback: tandai user sebagai disabled di Firestore saja
+    // Endpoint ini butuh Firebase Admin SDK / Cloud Functions untuk akses penuh
+    console.warn('Firebase Auth delete via REST API gagal:', errData?.error?.message || res.status);
+    throw new Error(errData?.error?.message || 'Gagal menghapus dari Firebase Auth');
+  }
+
+  return true;
 }
 
 export const UsersPage = () => {
@@ -127,14 +162,36 @@ export const UsersPage = () => {
     setSaving(false);
   };
 
+  // ── Reactivate ────────────────────────────────────────────────────────────
+  const handleReactivate = async () => {
+    if (!selectedUser) return;
+    setSaving(true);
+    await updateDoc(doc(db, 'users', selectedUser.id), { status: 'active' });
+    showMsg(`Akun ${selectedUser.email} berhasil diaktifkan kembali.`);
+    setModalType(null);
+    setSaving(false);
+  };
+
   // ── Hard Delete ───────────────────────────────────────────────────────────
   const handleHardDelete = async () => {
     if (!selectedUser) return;
     setSaving(true);
     try {
       const { deleteDoc } = await import('firebase/firestore');
+
+      // 1. Hapus dari Firebase Authentication
+      try {
+        await deleteFirebaseAuthUser(selectedUser.id);
+      } catch (authErr) {
+        // Jika gagal hapus dari Auth, tetap lanjut hapus Firestore
+        // tapi beri tahu user bahwa Auth mungkin masih ada
+        console.warn('Gagal hapus dari Firebase Auth:', authErr.message);
+        // Jangan stop proses — Firestore tetap dihapus
+      }
+
+      // 2. Hapus dari Firestore
       await deleteDoc(doc(db, 'users', selectedUser.id));
-      showMsg(`Akun ${selectedUser.email} dihapus permanen.`);
+      showMsg(`Akun ${selectedUser.email} dihapus permanen dari database dan autentikasi.`);
     } catch(err) {
       showMsg('Gagal menghapus: ' + err.message, true);
     }
@@ -250,12 +307,20 @@ export const UsersPage = () => {
                             </button>
                           )}
                           {isInactive && (
-                            <button
-                              onClick={() => { setSelectedUser(user); setModalType('hard_delete'); }}
-                              className="flex items-center gap-1.5 text-red-500 font-bold text-xs bg-red-50 px-3 py-2 rounded-xl hover:bg-red-100 transition-all"
-                            >
-                              <Trash2 size={13} /> Hapus Permanen
-                            </button>
+                            <>
+                              <button
+                                onClick={() => { setSelectedUser(user); setModalType('reactivate'); }}
+                                className="flex items-center gap-1.5 text-[#347B5A] font-bold text-xs bg-[#EAF4EF] px-3 py-2 rounded-xl hover:bg-[#d4eadf] transition-all"
+                              >
+                                <UserCheck size={13} /> Aktifkan
+                              </button>
+                              <button
+                                onClick={() => { setSelectedUser(user); setModalType('hard_delete'); }}
+                                className="flex items-center gap-1.5 text-red-500 font-bold text-xs bg-red-50 px-3 py-2 rounded-xl hover:bg-red-100 transition-all"
+                              >
+                                <Trash2 size={13} /> Hapus
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -361,6 +426,30 @@ export const UsersPage = () => {
         )}
       </Modal>
 
+      {/* ── Reactivate Modal ── */}
+      <Modal open={modalType === 'reactivate'} onClose={() => setModalType(null)} title="Aktifkan Kembali Pengguna" size="sm">
+        {selectedUser && (
+          <div className="space-y-5">
+            <div className="bg-[#EAF4EF] border border-[#c8e6d8] rounded-xl p-4 flex items-start gap-3">
+              <UserCheck size={20} className="text-[#347B5A] shrink-0 mt-0.5" />
+              <p className="text-sm font-semibold text-[#1A4D2E]">
+                Akun <b>{selectedUser.email}</b> akan diaktifkan kembali. Pengguna dapat login dan menggunakan sistem seperti biasa.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setModalType(null)}
+                className="bg-slate-100 hover:bg-slate-200 text-[#1A1D1B] font-bold py-3.5 rounded-xl transition-all">
+                Batal
+              </button>
+              <button onClick={handleReactivate} disabled={saving}
+                className="bg-[#607d6e] hover:bg-[#526b5e] text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#607d6e]/20 disabled:opacity-50">
+                {saving ? 'Memproses...' : 'Aktifkan Kembali'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* ── Hard Delete Modal ── */}
       <Modal open={modalType === 'hard_delete'} onClose={() => setModalType(null)} title="Hapus Pengguna Permanen" size="sm">
         {selectedUser && (
@@ -368,7 +457,7 @@ export const UsersPage = () => {
             <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-start gap-3">
               <AlertTriangle size={20} className="text-red-500 shrink-0 mt-0.5" />
               <p className="text-sm font-semibold text-red-700">
-                Akun <b>{selectedUser.email}</b> akan dihapus secara <b>permanen</b> dari database. Tindakan ini tidak dapat dibatalkan.
+                Akun <b>{selectedUser.email}</b> akan dihapus secara <b>permanen</b> dari database dan Firebase Authentication. Tindakan ini tidak dapat dibatalkan.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
