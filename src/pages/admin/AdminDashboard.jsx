@@ -10,7 +10,7 @@ import {
   TrendingUp, TrendingDown, Users, ShoppingBag, PackageCheck,
   RefreshCw, ArrowUpRight, Activity, ChevronRight, BarChart2,
   Trophy, Medal, Crown, Tag, Sun, Moon, Sunrise,
-  DollarSign, CheckCircle, UserCheck, Layers, Info
+  DollarSign, CheckCircle, UserCheck, Layers, Info, Zap
 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 
@@ -463,17 +463,28 @@ export const AdminDashboard = () => {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          {/* {role === 'admin' && (
-             <button 
-                onClick={handleClear} 
-                disabled={seeding}
-                className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 rounded-xl font-bold text-xs transition-colors shrink-0 border border-red-100 disabled:opacity-50"
-                title="Hapus Pesanan, Pengeluaran, & Log"
-             >
-                <RefreshCw size={14} className={seeding ? 'animate-spin' : ''} />
-                {seeding ? 'Memproses...' : 'Kosongkan Transaksi'}
-             </button>
-          )} */}
+          {role === 'admin' && (
+             <div className="flex gap-2">
+               {/* <button 
+                  onClick={handleClear} 
+                  disabled={seeding}
+                  className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 rounded-xl font-bold text-xs transition-colors shrink-0 border border-red-100 disabled:opacity-50"
+                  title="Hapus Pesanan, Pengeluaran, & Log"
+               >
+                  <RefreshCw size={14} className={seeding ? 'animate-spin' : ''} />
+                  {seeding ? 'Proses...' : 'Kosongkan Data'}
+               </button> */}
+               {/* <button 
+                  onClick={handleSeed} 
+                  disabled={seeding}
+                  className="flex items-center gap-2 bg-[#EAF4EF] text-[#347B5A] hover:bg-[#d6ebe0] px-4 py-2.5 rounded-xl font-bold text-xs transition-colors shrink-0 border border-[#347B5A]/20 disabled:opacity-50"
+                  title="Generate Dummy Data"
+               >
+                  <Zap size={14} className={seeding ? 'animate-pulse' : ''} />
+                  {seeding ? 'Generate...' : 'Buat Dummy Data'}
+               </button> */}
+             </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full sm:w-auto">
             <label className="flex flex-col gap-2 text-xs text-[#1A1D1B] font-semibold">
               Dari

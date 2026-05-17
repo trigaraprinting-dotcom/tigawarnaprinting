@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useOrderActions } from '../../hooks/useOrders';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/firebaseConfig';
 import { ChevronLeft, Save } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,16 +27,48 @@ const EMPTY_ORDER = {
   notes: '',
 };
 
-export const InputPesanan = () => {
+export const EditPesanan = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { addOrder, isUpdating } = useOrderActions();
+  const { editOrder, isUpdating } = useOrderActions();
   const { user } = useAuth();
   const [form, setForm] = useState(EMPTY_ORDER);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [loadingCats, setLoadingCats] = useState(true);
+  const [loadingOrder, setLoadingOrder] = useState(true);
   const [addMsg, setAddMsg] = useState('');
+
+  useEffect(() => {
+    const fetchOrder = async () => {
+      try {
+        const orderSnap = await getDoc(doc(db, 'orders', id));
+        if (orderSnap.exists()) {
+          const data = orderSnap.data();
+          setForm({
+            ...EMPTY_ORDER,
+            ...data,
+            quantity: data.quantity || '',
+            panjang: data.panjang || '',
+            lebar: data.lebar || '',
+            ongkos_potong: data.ongkos_potong || '',
+            design_price: data.design_price || '',
+            dp_amount: data.dp_amount || '',
+            harga_satuan: data.product_sell_price || '',
+          });
+        } else {
+          setAddMsg('Pesanan tidak ditemukan');
+        }
+      } catch (err) {
+        console.error(err);
+        setAddMsg('Gagal memuat pesanan');
+      } finally {
+        setLoadingOrder(false);
+      }
+    };
+    if (id) fetchOrder();
+  }, [id]);
 
   useEffect(() => {
     const qCat = query(collection(db, 'kategori_produksi'));
@@ -162,7 +194,7 @@ export const InputPesanan = () => {
       const costPerUnit = Number(selectedProd?.harga_asli || form.product_cost_per_unit || 0);
       const profit = totalPrice - (costPerUnit * quantity);
 
-      await addOrder({
+      await editOrder(id, {
         customer_name: form.customer_name,
         customer_phone: form.customer_phone,
         kategori_produk: form.kategori_produk,
@@ -186,11 +218,13 @@ export const InputPesanan = () => {
         total_price: totalPrice,
         profit: profit,
         dp_amount: form.dp_amount ? Number(form.dp_amount) : null,
-        status: (Number(form.dp_amount) || 0) > 0 ? 'awaiting_dp' : 'pending',
+        status: form.status === 'pending' || form.status === 'awaiting_dp' 
+                ? ((Number(form.dp_amount) || 0) > 0 ? 'awaiting_dp' : 'pending')
+                : form.status,
         notes: form.notes,
         cs_email: user?.email || 'Unknown',
       });
-      setAddMsg('✓ Pesanan berhasil ditambahkan!');
+      setAddMsg('✓ Pesanan berhasil diperbarui!');
       setTimeout(() => {
         navigate('/cs/dashboard');
       }, 1500);
@@ -199,12 +233,23 @@ export const InputPesanan = () => {
     }
   };
 
+  if (loadingOrder) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-10 h-10 border-4 border-slate-100 border-t-[#607d6e] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-[1400px] mx-auto mb-10 pb-20 md:pb-0 space-y-6">
       <div className="flex items-center gap-4">
+        <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-slate-100 transition-colors">
+          <ChevronLeft size={24} className="text-[#1A1D1B]" />
+        </button>
         <div>
-          <h2 className="text-2xl font-extrabold text-[#1A1D1B]">Input Pesanan Baru</h2>
-          <p className="text-[#646A66] font-medium mt-1">Isi formulir detail pesanan klien</p>
+          <h2 className="text-2xl font-extrabold text-[#1A1D1B]">Edit Pesanan</h2>
+          <p className="text-[#646A66] font-medium mt-1">Perbarui formulir detail pesanan klien</p>
         </div>
       </div>
 

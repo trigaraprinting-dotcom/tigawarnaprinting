@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useOrdersSnapshot } from '../../hooks/useOrders';
 import { db } from '../../firebase/firebaseConfig';
 import { collection, limit, onSnapshot, orderBy, query, doc, updateDoc } from 'firebase/firestore';
-import { Users, Activity, Clock, CheckCircle2, PackageCheck, Paintbrush, Layers, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Activity, Clock, CheckCircle2, PackageCheck, Paintbrush, Layers, Trash2, ChevronLeft, ChevronRight, Scissors, Ruler } from 'lucide-react';
 
 const formatDateTime = (ts) => {
   if (!ts) return '-';
@@ -13,6 +13,11 @@ const formatDateTime = (ts) => {
 const formatArea = (area) => {
   if (!area) return '0';
   return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(area);
+};
+
+const formatRupiah = (val) => {
+  if (!val) return 'Rp 0';
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
 };
 
 const ACTION_LABEL = {
@@ -26,7 +31,7 @@ export const KinerjaPekerjaPage = () => {
   const [logs, setLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState('produksi'); // produksi | desainer
+  const [activeTab, setActiveTab] = useState('produksi'); // produksi | desainer | cutting
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [actionFilter, setActionFilter] = useState('all');
   const [logPage, setLogPage] = useState(1);
@@ -77,63 +82,97 @@ export const KinerjaPekerjaPage = () => {
     const pMap = {};
     const dMap = {};
 
-    // 1. Process action logs for produksi
-    for (const l of productionLogs) {
-      const email = l.user_email;
-      if (!pMap[email]) {
-        pMap[email] = { email, role: 'petugas_produksi', createdOrders: 0, statusUpdates: 0, total_qty: 0, total_area: 0, items: {} };
-      }
-      if (l.action === 'CREATE_ORDER') pMap[email].createdOrders += 1;
-      if (l.action === 'UPDATE_STATUS') pMap[email].statusUpdates += 1;
-    }
-
-    // 2. Process orders for achievements (ONLY DONE ORDERS)
+    // Produksi: hanya order yg punya dimensi (panjang & lebar) dan sudah done
     for (const o of orders) {
       if (o.status !== 'done') continue;
 
-      // Produksi
-      const pEmail = o.operator_email || o.packing_by || o.finishing_by || o.cetak_by;
-      if (pEmail) {
-        if (!pMap[pEmail]) pMap[pEmail] = { email: pEmail, role: 'petugas_produksi', createdOrders: 0, statusUpdates: 0, total_qty: 0, total_area: 0, items: {} };
-        const qty = Number(o.quantity || 0);
-        const p = Number(o.panjang || 0);
-        const l = Number(o.lebar || 0);
-        
-        let pM = p;
-        let lM = l;
-        if (o.dimension_unit === 'cm' || (o.dimension_unit !== 'm' && (p > 30 || l > 30))) {
-          pM = p / 100;
-          lM = l / 100;
+      const p = Number(o.panjang || 0);
+      const l = Number(o.lebar || 0);
+
+      // Hanya proses jika ada dimensi
+      if (p > 0 && l > 0) {
+        const pEmail = o.operator_email || o.cetak_by || o.finishing_by || o.packing_by;
+        if (pEmail) {
+          if (!pMap[pEmail]) {
+            pMap[pEmail] = { email: pEmail, role: 'petugas_produksi', total_area: 0, items: {} };
+          }
+          const qty = Number(o.quantity || 1);
+          let pM = p, lM = l;
+          if (o.dimension_unit === 'cm' || (o.dimension_unit !== 'm' && (p > 30 || l > 30))) {
+            pM = p / 100;
+            lM = l / 100;
+          }
+          const area = pM * lM * qty;
+          pMap[pEmail].total_area += area;
+
+          const prodName = o.product_name || 'Produk Lainnya';
+          const unit = o.dimension_unit || (p > 30 || l > 30 ? 'cm' : 'm');
+          const dimStr = `${p}×${l} ${unit}`;
+          const itemKey = `${prodName}_${dimStr}`;
+          if (!pMap[pEmail].items[itemKey]) {
+            pMap[pEmail].items[itemKey] = { name: prodName, dimension: dimStr, qty: 0, area: 0 };
+          }
+          pMap[pEmail].items[itemKey].qty += qty;
+          pMap[pEmail].items[itemKey].area += area;
         }
-        const area = (pM > 0 && lM > 0) ? (pM * lM * qty) : 0;
+      }
 
-        pMap[pEmail].total_qty += qty;
-        pMap[pEmail].total_area += area;
-
-        const prodName = o.product_name || 'Produk Lainnya';
-        const dimStr = (p > 0 && l > 0) ? `${p} ${o.dimension_unit || (p > 30 || l > 30 ? 'cm' : 'm')} x ${l} ${o.dimension_unit || (p > 30 || l > 30 ? 'cm' : 'm')}` : '-';
-        const itemKey = `${prodName}_${dimStr}`;
-
-        if (!pMap[pEmail].items[itemKey]) {
-          pMap[pEmail].items[itemKey] = { name: prodName, dimension: dimStr, qty: 0, area: 0 };
+      // Keliling (finishing) — digabung ke prodWorkers
+      if (o.finishing_by && p > 0 && l > 0) {
+        const fEmail = o.finishing_by;
+        if (!pMap[fEmail]) pMap[fEmail] = { email: fEmail, role: 'petugas_produksi', total_area: 0, total_keliling: 0, items: {}, finishingItems: [] };
+        if (pMap[fEmail].total_keliling === undefined) { pMap[fEmail].total_keliling = 0; pMap[fEmail].finishingItems = []; }
+        const qty = Number(o.quantity) || 1;
+        let kPerItem = 0;
+        if (o.keliling > 0) {
+          kPerItem = o.dimension_unit === 'cm' ? o.keliling / 100 : o.keliling;
+        } else {
+          let pM = p, lM = l;
+          if (o.dimension_unit === 'cm' || (o.dimension_unit !== 'm' && (p > 30 || l > 30))) { pM = p / 100; lM = l / 100; }
+          kPerItem = 2 * (pM + lM);
         }
-        pMap[pEmail].items[itemKey].qty += qty;
-        pMap[pEmail].items[itemKey].area += area;
+        pMap[fEmail].total_keliling += kPerItem * qty;
+        pMap[fEmail].finishingItems.push({ product_name: o.product_name, keliling: kPerItem, qty });
       }
 
       // Desainer
       if (o.needs_design && o.designer_email) {
         const dEmail = o.designer_email;
-        if (!dMap[dEmail]) dMap[dEmail] = { email: dEmail, role: 'desainer', total_orders: 0 };
+        if (!dMap[dEmail]) dMap[dEmail] = { email: dEmail, role: 'desainer', total_orders: 0, total_fee: 0, items: [] };
         dMap[dEmail].total_orders += 1;
+        const fee = Number(o.design_price || 0);
+        dMap[dEmail].total_fee += fee;
+        dMap[dEmail].items.push({
+           product_name: o.product_name || 'Desain',
+           customer_name: o.customer_name,
+           fee: fee
+        });
       }
     }
 
-    const prodArray = Object.values(pMap).sort((a, b) => b.total_area - a.total_area || b.total_qty - a.total_qty);
-    const desArray = Object.values(dMap).sort((a, b) => b.total_orders - a.total_orders);
+    const prodArray = Object.values(pMap).sort((a, b) => b.total_area - a.total_area);
+    const desArray = Object.values(dMap).sort((a, b) => b.total_fee - a.total_fee);
 
     return { prodWorkers: prodArray, desWorkers: desArray };
   }, [orders, productionLogs]);
+
+  // Cutting workers (Lembar only)
+  const cuttingWorkers = useMemo(() => {
+    const cMap = {};
+    for (const o of orders) {
+      if (o.status !== 'done') continue;
+      if (o.product_unit === 'Lembar' && o.cetak_by) {
+        const cEmail = o.cetak_by;
+        if (!cMap[cEmail]) cMap[cEmail] = { email: cEmail, total_lembar: 0, total_fee: 0, items: [] };
+        const qty = Number(o.quantity) || 1;
+        const fee = Number(o.ongkos_potong) || 0;
+        cMap[cEmail].total_lembar += qty;
+        cMap[cEmail].total_fee += fee;
+        cMap[cEmail].items.push({ product_name: o.product_name, customer_name: o.customer_name, qty, ongkos_potong: fee });
+      }
+    }
+    return Object.values(cMap).sort((a, b) => b.total_fee - a.total_fee);
+  }, [orders]);
 
   const allWorkers = useMemo(() => {
     const map = {};
@@ -185,23 +224,24 @@ export const KinerjaPekerjaPage = () => {
     if (activeTab === 'produksi') {
       if (prodWorkers.length > 0 && (!selectedEmail || !prodWorkers.some(w => w.email === selectedEmail))) {
         setSelectedEmail(prodWorkers[0].email);
-      } else if (prodWorkers.length === 0) {
-        setSelectedEmail(null);
-      }
-    } else {
+      } else if (prodWorkers.length === 0) setSelectedEmail(null);
+    } else if (activeTab === 'desainer') {
       if (desWorkers.length > 0 && (!selectedEmail || !desWorkers.some(w => w.email === selectedEmail))) {
         setSelectedEmail(desWorkers[0].email);
-      } else if (desWorkers.length === 0) {
-        setSelectedEmail(null);
-      }
+      } else if (desWorkers.length === 0) setSelectedEmail(null);
+    } else if (activeTab === 'cutting') {
+      if (cuttingWorkers.length > 0 && (!selectedEmail || !cuttingWorkers.some(w => w.email === selectedEmail))) {
+        setSelectedEmail(cuttingWorkers[0].email);
+      } else if (cuttingWorkers.length === 0) setSelectedEmail(null);
     }
-  }, [activeTab, prodWorkers, desWorkers, selectedEmail]);
+  }, [activeTab, prodWorkers, desWorkers, cuttingWorkers, selectedEmail]);
 
   const selectedWorker = useMemo(() => {
     if (!selectedEmail) return null;
     if (activeTab === 'produksi') return prodWorkers.find(w => w.email === selectedEmail);
-    return desWorkers.find(w => w.email === selectedEmail);
-  }, [activeTab, prodWorkers, desWorkers, selectedEmail]);
+    if (activeTab === 'desainer') return desWorkers.find(w => w.email === selectedEmail);
+    return cuttingWorkers.find(w => w.email === selectedEmail) || null;
+  }, [activeTab, prodWorkers, desWorkers, cuttingWorkers, selectedEmail]);
 
   const selectedWorkerLogs = useMemo(() => {
     if (!selectedEmail || activeTab === 'desainer') return [];
@@ -244,20 +284,27 @@ export const KinerjaPekerjaPage = () => {
             <div className="bg-white rounded-[2rem] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-5">
               
               {/* Tab Selector */}
-              <div className="flex gap-2 p-1 bg-slate-50 rounded-2xl mb-5 border border-slate-100">
+              <div className="flex gap-1 p-1 bg-slate-50 rounded-2xl mb-5 border border-slate-100">
                 <button
-                  onClick={() => setActiveTab('produksi')}
-                  className={['flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-extrabold transition-all', activeTab === 'produksi' ? 'bg-white text-[#1A1D1B] shadow-sm' : 'text-slate-400 hover:text-slate-600'].join(' ')}
+                  onClick={() => { setActiveTab('produksi'); setSelectedEmail(null); }}
+                  className={['flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold transition-all', activeTab === 'produksi' ? 'bg-white text-[#1A1D1B] shadow-sm' : 'text-slate-400 hover:text-slate-600'].join(' ')}
                 >
-                  <PackageCheck size={16} className={activeTab === 'produksi' ? 'text-[#607d6e]' : ''}/>
+                  <PackageCheck size={14} className={activeTab === 'produksi' ? 'text-[#607d6e]' : ''}/>
                   Produksi
                 </button>
                 <button
-                  onClick={() => setActiveTab('desainer')}
-                  className={['flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-extrabold transition-all', activeTab === 'desainer' ? 'bg-white text-[#1A1D1B] shadow-sm' : 'text-slate-400 hover:text-slate-600'].join(' ')}
+                  onClick={() => { setActiveTab('desainer'); setSelectedEmail(null); }}
+                  className={['flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold transition-all', activeTab === 'desainer' ? 'bg-white text-[#1A1D1B] shadow-sm' : 'text-slate-400 hover:text-slate-600'].join(' ')}
                 >
-                  <Paintbrush size={16} className={activeTab === 'desainer' ? 'text-[#C29656]' : ''}/>
+                  <Paintbrush size={14} className={activeTab === 'desainer' ? 'text-[#C29656]' : ''}/>
                   Desainer
+                </button>
+                <button
+                  onClick={() => { setActiveTab('cutting'); setSelectedEmail(null); }}
+                  className={['flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-extrabold transition-all', activeTab === 'cutting' ? 'bg-white text-[#1A1D1B] shadow-sm' : 'text-slate-400 hover:text-slate-600'].join(' ')}
+                >
+                  <Scissors size={14} className={activeTab === 'cutting' ? 'text-purple-500' : ''}/>
+                  Cutting
                 </button>
               </div>
 
@@ -313,7 +360,7 @@ export const KinerjaPekerjaPage = () => {
                                 <p className="font-extrabold text-[14px] text-[#1A1D1B] truncate">{w.email.split('@')[0]}</p>
                               </div>
                               <p className="text-[10px] font-bold text-[#C29656] uppercase tracking-wider mt-1.5">
-                                {w.total_orders} Pesanan Selesai
+                                {w.total_orders} Pesanan Selesai • {formatRupiah(w.total_fee)}
                               </p>
                             </div>
                           </div>
@@ -323,6 +370,31 @@ export const KinerjaPekerjaPage = () => {
                   )
                 )}
               </div>
+
+                {/* CUTTING TAB LIST */}
+                {activeTab === 'cutting' && (
+                  <div className="space-y-3">
+                    {cuttingWorkers.length === 0 ? (
+                      <p className="text-[#646A66] font-semibold text-center py-8">Belum ada data cutting (Lembar).</p>
+                    ) : (
+                      cuttingWorkers.map((w, idx) => {
+                        const isActive = w.email === selectedEmail;
+                        return (
+                          <button key={w.email} type="button" onClick={() => setSelectedEmail(w.email)}
+                            className={['w-full text-left rounded-2xl p-4 border transition-all', isActive ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100 hover:bg-slate-50'].join(' ')}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-black text-slate-500 bg-slate-50 px-2 py-1 rounded-lg">#{idx+1}</span>
+                              <div className="min-w-0">
+                                <p className="font-extrabold text-[13px] text-[#1A1D1B] truncate">{w.email.split('@')[0]}</p>
+                                <p className="text-[10px] font-bold text-orange-500 mt-0.5">{w.total_lembar} Lembar • {formatRupiah(w.total_fee)}</p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
             </div>
           </div>
 
@@ -345,26 +417,18 @@ export const KinerjaPekerjaPage = () => {
 
                 {selectedWorker ? (
                   <>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                      <div className="bg-[#EAF4EF] rounded-xl p-4 border border-[#c5d9d3]">
-                        <p className="text-[10px] font-bold text-[#347B5A] uppercase tracking-widest mb-1">Total Luas Area</p>
-                        <p className="text-xl font-extrabold text-[#1A1D1B]">{formatArea(selectedWorker.total_area)} m²</p>
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                      <div className="bg-[#EAF4EF] rounded-xl p-5 border border-[#c5d9d3]">
+                        <p className="text-[10px] font-bold text-[#347B5A] uppercase tracking-widest mb-1">Total Luas (Cetak)</p>
+                        <p className="text-2xl font-extrabold text-[#1A1D1B]">{formatArea(selectedWorker.total_area)} <span className="text-sm font-bold text-slate-400">m²</span></p>
                       </div>
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                        <p className="text-[10px] font-bold text-[#646A66] uppercase tracking-widest mb-1">Total Barang</p>
-                        <p className="text-xl font-extrabold text-[#1A1D1B]">{selectedWorker.total_qty} Pcs</p>
-                      </div>
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                        <p className="text-[10px] font-bold text-[#646A66] uppercase tracking-widest mb-1">Buat Pesanan</p>
-                        <p className="text-xl font-extrabold text-[#1A1D1B]">{selectedWorker.createdOrders}</p>
-                      </div>
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                        <p className="text-[10px] font-bold text-[#646A66] uppercase tracking-widest mb-1">Update Status</p>
-                        <p className="text-xl font-extrabold text-[#1A1D1B]">{selectedWorker.statusUpdates}</p>
+                      <div className="bg-purple-50 rounded-xl p-5 border border-purple-100">
+                        <p className="text-[10px] font-bold text-purple-600 uppercase tracking-widest mb-1">Total Keliling (Finishing)</p>
+                        <p className="text-2xl font-extrabold text-[#1A1D1B]">{formatArea(selectedWorker.total_keliling || 0)} <span className="text-sm font-bold text-slate-400">m</span></p>
                       </div>
                     </div>
 
-                    <h4 className="text-sm font-extrabold text-[#1A1D1B] mb-3">Rincian Barang Dikerjakan</h4>
+                    <h4 className="text-sm font-extrabold text-[#1A1D1B] mb-3 flex items-center gap-2"><Layers size={15} className="text-[#607d6e]"/> Rincian Cetak (Luas)</h4>
                     <div className="bg-slate-50 rounded-2xl p-1 overflow-hidden border border-slate-100">
                       <table className="w-full text-sm">
                         <thead>
@@ -387,11 +451,81 @@ export const KinerjaPekerjaPage = () => {
                         </tbody>
                       </table>
                     </div>
+                    {(selectedWorker.finishingItems?.length > 0) && (
+                      <div className="mt-5">
+                        <h4 className="text-sm font-extrabold text-[#1A1D1B] mb-3 flex items-center gap-2"><Ruler size={15} className="text-purple-500"/> Rincian Finishing (Keliling)</h4>
+                        <div className="bg-slate-50 rounded-2xl p-1 overflow-hidden border border-slate-100">
+                          <table className="w-full text-sm">
+                            <thead><tr className="border-b border-slate-200">
+                              <th className="text-left px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Produk</th>
+                              <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Keliling/item (m)</th>
+                              <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Qty</th>
+                              <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Total (m)</th>
+                            </tr></thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {selectedWorker.finishingItems.map((it, i) => (
+                                <tr key={i} className="bg-white hover:bg-slate-50/50">
+                                  <td className="px-4 py-3 font-bold text-[#1A1D1B]">{it.product_name}</td>
+                                  <td className="px-4 py-3 text-right font-semibold text-slate-500">{formatArea(it.keliling)}</td>
+                                  <td className="px-4 py-3 text-right font-semibold text-slate-500">{it.qty}</td>
+                                  <td className="px-4 py-3 text-right font-bold text-purple-600">{formatArea(it.keliling * it.qty)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="text-center text-[#646A66] font-semibold py-12 bg-slate-50 rounded-2xl border border-slate-100">
                     Pilih pekerja di kolom kiri untuk melihat detail.
                   </div>
+                )}
+              </div>
+            ) : activeTab === 'cutting' ? (
+              // DETAIL CUTTING
+              <div className="bg-white rounded-[2rem] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-5">
+                <h3 className="text-lg font-extrabold text-[#1A1D1B] flex items-center gap-2 mb-6">
+                  <Scissors size={20} className="text-orange-500" />
+                  Cutting: {selectedWorker ? selectedWorker.email.split('@')[0] : 'Pilih Pekerja'}
+                </h3>
+                {selectedWorker ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 mb-5">
+                      <div className="bg-orange-50 rounded-xl p-5 border border-orange-100">
+                        <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1">Total Ongkos Potong</p>
+                        <p className="text-2xl font-extrabold text-[#1A1D1B]">{formatRupiah(selectedWorker.total_fee)}</p>
+                        <p className="text-[11px] font-semibold text-orange-500/80 mt-1">{selectedWorker.total_lembar} lembar</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Jenis Produk</p>
+                        <p className="text-2xl font-extrabold text-[#1A1D1B]">{selectedWorker.items?.length || 0}</p>
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-100">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-slate-200">
+                          <th className="text-left px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Klien</th>
+                          <th className="text-left px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Produk</th>
+                          <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Qty (Lembar)</th>
+                          <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Fee Potong</th>
+                        </tr></thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {(selectedWorker.items || []).map((it, i) => (
+                            <tr key={i} className="bg-white hover:bg-slate-50/50">
+                              <td className="px-4 py-3 font-semibold text-[#646A66]">{it.customer_name || '-'}</td>
+                              <td className="px-4 py-3 font-bold text-[#1A1D1B]">{it.product_name}</td>
+                              <td className="px-4 py-3 text-right font-bold text-orange-600">{it.qty}</td>
+                              <td className="px-4 py-3 text-right font-bold text-[#1A1D1B]">{formatRupiah(it.ongkos_potong)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center text-[#646A66] font-semibold py-12 bg-slate-50 rounded-2xl border border-slate-100">Pilih pekerja di kolom kiri.</div>
                 )}
               </div>
             ) : (
@@ -410,15 +544,37 @@ export const KinerjaPekerjaPage = () => {
                 </div>
 
                 {selectedWorker ? (
-                  <div className="bg-[#FAF5ED] rounded-2xl p-6 border border-[#C29656]/20 flex items-center justify-between">
-                     <div>
-                       <p className="text-[11px] font-bold text-[#C29656] uppercase tracking-widest mb-1">Total Pesanan Dikerjakan</p>
-                       <p className="text-3xl font-extrabold text-[#1A1D1B]">{selectedWorker.total_orders}</p>
-                     </div>
-                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm border border-[#C29656]/20">
-                       <CheckCircle2 size={32} className="text-[#C29656]"/>
-                     </div>
-                  </div>
+                  <>
+                    <div className="bg-[#FAF5ED] rounded-2xl p-6 border border-[#C29656]/20 flex items-center justify-between mb-6">
+                       <div>
+                         <p className="text-[11px] font-bold text-[#C29656] uppercase tracking-widest mb-1">Total Jasa Desain</p>
+                         <p className="text-3xl font-extrabold text-[#1A1D1B]">{formatRupiah(selectedWorker.total_fee)}</p>
+                         <p className="text-[12px] font-semibold text-slate-500 mt-1">Dari {selectedWorker.total_orders} pesanan</p>
+                       </div>
+                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm border border-[#C29656]/20">
+                         <CheckCircle2 size={32} className="text-[#C29656]"/>
+                       </div>
+                    </div>
+                    
+                    <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-100">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-slate-200">
+                          <th className="text-left px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Klien</th>
+                          <th className="text-left px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Produk</th>
+                          <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#646A66] uppercase tracking-wider">Fee Desain</th>
+                        </tr></thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {(selectedWorker.items || []).map((it, i) => (
+                            <tr key={i} className="bg-white hover:bg-slate-50/50">
+                              <td className="px-4 py-3 font-semibold text-[#646A66]">{it.customer_name || '-'}</td>
+                              <td className="px-4 py-3 font-bold text-[#1A1D1B]">{it.product_name}</td>
+                              <td className="px-4 py-3 text-right font-bold text-[#C29656]">{formatRupiah(it.fee)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 ) : (
                   <div className="text-center text-[#646A66] font-semibold py-12 bg-slate-50 rounded-2xl border border-slate-100">
                     Pilih desainer di kolom kiri untuk melihat detail.

@@ -4,7 +4,7 @@ import { useOrdersSnapshot } from '../../hooks/useOrders';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, PlusCircle, Search, Filter, ChevronLeft, ChevronRight, LayoutDashboard, Clock, PlayCircle, CheckCircle2 } from 'lucide-react';
+import { Eye, PlusCircle, Search, Filter, ChevronLeft, ChevronRight, LayoutDashboard, Clock, PlayCircle, CheckCircle2, Edit } from 'lucide-react';
 import clsx from 'clsx';
 const formatRupiah = (val) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
@@ -368,8 +368,17 @@ export const CSDashboard = () => {
                 ['Klien', selectedOrder.customer_name],
                 ['No. HP', selectedOrder.customer_phone || '-'],
                 ['Produk', selectedOrder.product_name],
+                ['Satuan', selectedOrder.product_unit || '-'],
                 ['Nama File', selectedOrder.file_name || '-'],
                 ['Jumlah', `${selectedOrder.quantity} ${selectedOrder.product_unit}`],
+                ...(selectedOrder.panjang && selectedOrder.lebar ? [
+                  ['Ukuran', `${selectedOrder.panjang} × ${selectedOrder.lebar} ${selectedOrder.dimension_unit || ''}`],
+                  ['Luas', `${(selectedOrder.luas || selectedOrder.panjang * selectedOrder.lebar).toFixed(2)} ${selectedOrder.dimension_unit || ''}²`],
+                  ['Keliling', `${selectedOrder.keliling || (2 * (selectedOrder.panjang + selectedOrder.lebar)).toFixed(2)} ${selectedOrder.dimension_unit || ''}`],
+                ] : []),
+                ...(selectedOrder.ongkos_potong > 0 ? [
+                  ['Ongkos Potong ✂️', formatRupiah(selectedOrder.ongkos_potong)],
+                ] : []),
                 ['Jasa Desain', selectedOrder.needs_design ? `Ya (${formatRupiah(selectedOrder.design_price)}) - ${selectedOrder.designer_email}` : 'Tidak'],
                 ['Total', formatRupiah(selectedOrder.total_price)],
                 ['DP', selectedOrder.dp_amount ? formatRupiah(selectedOrder.dp_amount) : 'Belum ada'],
@@ -389,7 +398,15 @@ export const CSDashboard = () => {
               </div>
             )}
             
-            <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end">
+            <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end gap-2">
+               {(selectedOrder.status === 'pending' || selectedOrder.status === 'awaiting_dp') && (
+                 <button 
+                   onClick={() => navigate(`/cs/pesanan/edit/${selectedOrder.id}`)} 
+                   className="px-5 py-2.5 bg-blue-50 text-blue-600 font-bold rounded-xl text-sm hover:bg-blue-100 transition-colors flex items-center gap-2"
+                 >
+                   <Edit size={16} /> Edit Pesanan
+                 </button>
+               )}
                <button onClick={() => setSelectedOrder(null)} className="px-5 py-2.5 bg-slate-100 text-[#1A1D1B] font-bold rounded-xl text-sm hover:bg-slate-200 transition-colors">Tutup</button>
             </div>
           </div>

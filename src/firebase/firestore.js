@@ -38,6 +38,20 @@ export const createOrder = async (orderData) => {
   }
 };
 
+export const updateOrder = async (orderId, orderData) => {
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    await updateDoc(orderRef, {
+      ...orderData,
+      updated_at: serverTimestamp()
+    });
+    return true;
+  } catch (error) {
+    console.error("Error updating order:", error);
+    throw error;
+  }
+};
+
 export const logActivity = async (action, details, user) => {
   try {
     await addDoc(collection(db, 'activity_logs'), {

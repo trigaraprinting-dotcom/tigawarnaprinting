@@ -19,6 +19,7 @@ import { PengeluaranPage }    from './pages/admin/PengeluaranPage';
 // Role-specific pages
 import { CSDashboard }        from './pages/cs/CSDashboard';
 import { InputPesanan }       from './pages/cs/InputPesanan';
+import { EditPesanan }        from './pages/cs/EditPesanan';
 import { ValidasiDashboard }  from './pages/validasi/ValidasiDashboard';
 import { ClientValidasiPage } from './pages/validasi/ClientValidasiPage';
 import { DesainerDashboard }  from './pages/desainer/DesainerDashboard';
@@ -93,6 +94,7 @@ function App() {
               <Route path="cs" element={<ProtectedRoute allowedRoles={['customer_service']} />}>
                 <Route path="dashboard" element={<CSDashboard />} />
                 <Route path="pesanan/tambah" element={<InputPesanan />} />
+                <Route path="pesanan/edit/:id" element={<EditPesanan />} />
                 <Route path="pesanan"   element={<PesananPage />} />
               </Route>
 

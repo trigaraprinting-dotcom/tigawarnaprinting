@@ -45,6 +45,7 @@ export const KasirDashboard = () => {
   const awaitingDp = orders.filter(o => o.status === 'awaiting_dp');
   const readyPelunasan = orders.filter(o => o.status === 'ready');
   const doneOrders = orders.filter(o => o.status === 'done');
+  const inProgressOrders = orders.filter(o => !['awaiting_dp', 'ready', 'done'].includes(o.status));
 
   const totalDP = awaitingDp.reduce((s, o) => s + Number(o.dp_amount || o.total_price * 0.5 || 0), 0);
   const totalPelunasan = readyPelunasan.reduce((s, o) => s + (Number(o.total_price) - Number(o.dp_amount || 0)), 0);
@@ -66,7 +67,9 @@ export const KasirDashboard = () => {
   }).slice(0, 4);
 
   // Filtering for table
-  const tableData = filterStatus === 'pembayaran' ? activeQueue : doneOrders;
+  const tableData = filterStatus === 'pembayaran' ? activeQueue : 
+                    filterStatus === 'proses' ? inProgressOrders :
+                    doneOrders;
 
   const filtered = tableData.filter(o => {
     const matchSearch = !search ||
@@ -256,6 +259,12 @@ export const KasirDashboard = () => {
                   Antrean
                 </button>
                 <button
+                  onClick={() => { setFilterStatus('proses'); setPage(1); }}
+                  className={clsx("px-4 py-2 rounded-lg text-sm font-bold flex-1 sm:flex-none transition-all", filterStatus === 'proses' ? "bg-white text-[#1A1D1B] shadow-sm border border-slate-200" : "text-slate-400 hover:text-[#1A1D1B]")}
+                >
+                  Sedang Diproses
+                </button>
+                <button
                   onClick={() => { setFilterStatus('done'); setPage(1); }}
                   className={clsx("px-4 py-2 rounded-lg text-sm font-bold flex-1 sm:flex-none transition-all", filterStatus === 'done' ? "bg-[#1A1D1B] text-white shadow-sm" : "text-slate-400 hover:text-[#1A1D1B]")}
                 >
@@ -301,6 +310,7 @@ export const KasirDashboard = () => {
                         const isDP = order.status === 'awaiting_dp';
                         const isLunas = order.status === 'ready';
                         const isDone = order.status === 'done';
+                        const isInProgress = !isDP && !isLunas && !isDone;
                         const sisaTagihan = Number(order.total_price) - Number(order.dp_amount || 0);
 
                         return (
@@ -322,7 +332,7 @@ export const KasirDashboard = () => {
                                   <p className="font-extrabold text-[#1A1D1B] text-[13px]">{formatRupiah(order.total_price)}</p>
                                 </div>
                               )}
-                              {(isLunas || isDone) && (
+                              {(isLunas || isDone || isInProgress) && (
                                 <div>
                                   <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Sisa Tagihan</p>
                                   <p className={`font-extrabold text-[13px] ${sisaTagihan > 0 ? 'text-red-600' : 'text-[#347B5A]'}`}>
@@ -748,6 +758,15 @@ export const KasirDashboard = () => {
                   </div>
                 </div>
               )}
+              {orderToPrint.ongkos_potong > 0 && (
+                <div style={{marginBottom:'4px'}}>
+                  <div>{orderToPrint.needs_design && orderToPrint.design_price > 0 ? '3' : '2'}. JASA CUTTING</div>
+                  <div style={{display:'flex',justifyContent:'space-between',paddingLeft:'12px',marginTop:'1px'}}>
+                    <span>{formatRupiah(orderToPrint.ongkos_potong)} x1</span>
+                    <span>{formatRupiah(orderToPrint.ongkos_potong)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{borderBottom:'1px dashed #000',marginBottom:'6px'}}/>
@@ -788,6 +807,23 @@ export const KasirDashboard = () => {
             {/* FOOTER */}
             <div style={{textAlign:'center',fontSize:'8pt',position:'relative'}}>
               <div style={{fontWeight:'700',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Terima Kasih</div>
+              {orderToPrint.status !== 'done' && (
+                <div style={{
+                  border:'2px solid #f59e0b',
+                  borderRadius:'4px',
+                  padding:'4px 8px',
+                  marginBottom:'8px',
+                  color:'#b45309',
+                  fontWeight:'900',
+                  fontSize:'9pt',
+                  letterSpacing:'1px',
+                  textTransform:'uppercase',
+                  background:'#fffbeb',
+                }}>
+                  ⚠ STRUK UANG MUKA<br/>
+                  <span style={{fontWeight:'400',fontSize:'7.5pt',textTransform:'none'}}>Pesanan belum lunas. Sisa tagihan: {formatRupiah(Number(orderToPrint.total_price) - Number(orderToPrint.dp_amount||0))}</span>
+                </div>
+              )}
               <div style={{lineHeight:'1.5',marginBottom:'12px'}}>
                 periksa kembali pesanan anda.<br/>
                 kesalahan print karena kelalaian customer<br/>
