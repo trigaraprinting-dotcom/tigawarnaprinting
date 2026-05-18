@@ -8,7 +8,7 @@ export const PrintInvoice = ({ orderToPrint, displayName }) => {
 
   return (
     <div className="screen-hidden-print-only">
-      <div style={{fontFamily:'"Courier New",Courier,monospace',fontSize:'10pt',color:'#000',background:'#fff',width:'72mm',margin:'0 auto',padding:'3mm 2mm',lineHeight:'1.4'}}>
+      <div className="thermal-receipt">
 
         {/* HEADER */}
         <div style={{textAlign:'center',marginBottom:'8px'}}>
@@ -27,7 +27,7 @@ export const PrintInvoice = ({ orderToPrint, displayName }) => {
             ['Jam',     (() => { const d = orderToPrint.created_at?.toDate ? orderToPrint.created_at.toDate() : new Date(orderToPrint.created_at); return d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); })()],
             ['Customer',(orderToPrint.customer_name||'').toUpperCase()],
             ['Telp',    orderToPrint.customer_phone||'-'],
-            ['Invoice', (() => { const d = orderToPrint.created_at?.toDate ? orderToPrint.created_at.toDate() : new Date(orderToPrint.created_at); return ('INV'+d.toLocaleDateString('id-ID',{year:'2-digit',month:'2-digit',day:'2-digit'}).replace(/\//g,'')+(orderToPrint.id?.slice(0,6)||'')).toUpperCase(); })()],
+            ['Invoice', ('INV-' + (orderToPrint.id?.slice(-6)||'')).toUpperCase()],
             ['Kasir',   (displayName||'Kasir/CS').toUpperCase()],
           ].map(([label,val])=>(
             <div key={label} style={{display:'grid',gridTemplateColumns:'65px 1fr',marginBottom:'1px'}}>

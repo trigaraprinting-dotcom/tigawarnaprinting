@@ -119,15 +119,14 @@
    THERMAL RECEIPT PRINT STYLES (80mm)
    ══════════════════════════════════════════ */
 @media print {
-  /* Kunci ukuran kertas ke thermal 80mm */
   @page {
-    size: 80mm auto;
-    margin: 3mm 2mm;
+    /* Biarkan size auto agar printer driver mengatur panjang kertas sendiri (continuous roll) */
+    margin: 0;
   }
 
-  /* Paksa background putih, teks hitam, dan reset layout flex/height yang menyebabkan infinite loop */
   html, body, #root, .min-h-screen {
     background: white !important;
+    color: black !important;
     margin: 0 !important;
     padding: 0 !important;
     height: auto !important;
@@ -144,11 +143,12 @@
 
   /* Struk thermal styling */
   .thermal-receipt {
-    width: 72mm !important;
-    max-width: 72mm !important;
+    width: 100% !important;
+    max-width: 48mm !important; /* Printable area untuk printer thermal 58mm */
     margin: 0 auto !important;
+    padding: 2mm !important;
     font-family: 'Courier New', Courier, monospace !important;
-    font-size: 10pt !important;
+    font-size: 9pt !important;
     color: black !important;
     background: white !important;
     line-height: 1.4 !important;
