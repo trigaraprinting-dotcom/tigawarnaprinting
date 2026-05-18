@@ -305,6 +305,7 @@ export const AdminDashboard = () => {
     let selesaiCount = 0;
     const chartDataMap = {};
     const hppBreakdownMap = {};
+    const manualBreakdownMap = {};
 
     const addEvent = (date, amount, orderProfit, totalPrice) => {
       if (!date || amount <= 0) return;
@@ -345,22 +346,50 @@ export const AdminDashboard = () => {
         
         // Pengeluaran: hitung semua pesanan yg tidak dibatalkan
         if (o.status !== ORDER_STATUS.REJECTED && o.status !== 'rejected') {
-          const hpp = costPerUnit * quantity;
+          const pVal = Number(o.panjang) || 0;
+          const lVal = Number(o.lebar) || 0;
+          let hpp = 0;
+          if (pVal > 0 && lVal > 0) {
+            hpp = pVal * lVal * costPerUnit * quantity;
+          } else {
+            hpp = costPerUnit * quantity;
+          }
           totalPengeluaran += hpp;
           
           if (hpp > 0) {
             const name = o.product_name || 'Tidak Diketahui';
-            if (!hppBreakdownMap[name]) hppBreakdownMap[name] = { name, count: 0, totalHpp: 0 };
-            hppBreakdownMap[name].count += quantity;
-            hppBreakdownMap[name].totalHpp += hpp;
+            const unit = o.dimension_unit || 'm';
+            const key = pVal > 0 && lVal > 0 
+               ? `${name}-${pVal}-${lVal}-${costPerUnit}` 
+               : `${name}-satuan-${costPerUnit}`;
+
+            if (!hppBreakdownMap[key]) {
+               let rincian = '';
+               if (pVal > 0 && lVal > 0) {
+                  rincian = `${pVal}${unit} × ${lVal}${unit} × ${formatRupiah(costPerUnit)}`;
+               } else {
+                  rincian = `${formatRupiah(costPerUnit)} / qty`;
+               }
+               hppBreakdownMap[key] = { name, rincian, count: 0, totalHpp: 0 };
+            }
+            hppBreakdownMap[key].count += quantity;
+            hppBreakdownMap[key].totalHpp += hpp;
           }
         }
       }
 
       const totalPrice = Number(o.total_price || 0);
-      const sellPrice = Number(o.product_sell_price || 0);
       
-      let orderProfit = (sellPrice - costPerUnit) * quantity;
+      const pValForProfit = Number(o.panjang) || 0;
+      const lValForProfit = Number(o.lebar) || 0;
+      let orderCost = 0;
+      if (pValForProfit > 0 && lValForProfit > 0) {
+        orderCost = pValForProfit * lValForProfit * costPerUnit * quantity;
+      } else {
+        orderCost = costPerUnit * quantity;
+      }
+      
+      let orderProfit = totalPrice - orderCost;
       const dpAmount = Number(o.dp_amount || 0);
       const remaining = Math.max(0, totalPrice - dpAmount);
 
@@ -389,6 +418,12 @@ export const AdminDashboard = () => {
         }
         // NOTE: We do not subtract pengeluaran manual from daily profit chart yet per user request.
         // chartDataMap[dateStr].profit -= amt;
+
+        // Breakdown for manual expenses
+        const cat = p.kategori || 'Umum';
+        if (!manualBreakdownMap[cat]) manualBreakdownMap[cat] = { name: cat, count: 0, total: 0 };
+        manualBreakdownMap[cat].count += 1;
+        manualBreakdownMap[cat].total += amt;
       }
     });
 
@@ -426,6 +461,9 @@ export const AdminDashboard = () => {
       recentOrders,
       statusCounts,
       hppBreakdown: Object.values(hppBreakdownMap).sort((a,b) => b.totalHpp - a.totalHpp),
+      manualBreakdown: Object.values(manualBreakdownMap).sort((a,b) => b.total - a.total),
+      totalPengeluaranManual,
+      totalHpp: totalPengeluaran - totalPengeluaranManual
     };
   }, [orders, filteredOrders, filterPeriod, filterStart, filterEnd, pengeluaranData]);
 
@@ -845,47 +883,89 @@ export const AdminDashboard = () => {
         </div>
       </div>
 
-      <Modal open={showHppModal} onClose={() => setShowHppModal(false)} title="Rincian Modal Pesanan (HPP)" size="md">
-        <div className="space-y-4">
-          <p className="text-sm text-[#646A66] font-medium leading-relaxed">
-            Berikut adalah rincian total Harga Pokok Penjualan (HPP) dari barang-barang yang dipesan dalam periode ini. Ini merepresentasikan <b>modal dasar</b> untuk produksi barang.
-          </p>
-          {stats.hppBreakdown.length === 0 ? (
-            <div className="py-10 text-center">
-              <p className="text-sm font-semibold text-[#646A66]">Belum ada data pesanan (HPP) di periode ini.</p>
+      <Modal open={showHppModal} onClose={() => setShowHppModal(false)} title="Rincian Pengeluaran & HPP" size="lg">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Tabel HPP */}
+            <div>
+              <h4 className="text-[13px] font-extrabold text-[#1A1D1B] uppercase tracking-wider mb-3 flex items-center justify-between">
+                <span>Modal Pesanan (HPP)</span>
+                <span className="text-[#e05a5a]">{formatRupiahFull(stats.totalHpp)}</span>
+              </h4>
+              {stats.hppBreakdown.length === 0 ? (
+                <div className="py-10 text-center border border-slate-100 rounded-2xl bg-slate-50/50">
+                  <p className="text-sm font-semibold text-[#646A66]">Belum ada HPP di periode ini.</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 sticky top-0 z-10">
+                        <tr>
+                          <th className="text-left px-4 py-3 text-[10px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Produk</th>
+                          <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Qty</th>
+                          <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Total HPP</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {stats.hppBreakdown.map((item, i) => (
+                          <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3">
+                               <p className="font-bold text-[#1A1D1B] text-[12px] leading-tight">{item.name}</p>
+                               <p className="text-[10px] font-semibold text-slate-400 mt-0.5">{item.rincian}</p>
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-[#646A66] text-[12px]">{item.count}x</td>
+                            <td className="px-4 py-3 text-right font-bold text-[#e05a5a] text-[12px]">{formatRupiahFull(item.totalHpp)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-              <div className="max-h-[400px] overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 sticky top-0 z-10">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-[11px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Produk</th>
-                      <th className="text-right px-4 py-3 text-[11px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Qty Terjual</th>
-                      <th className="text-right px-4 py-3 text-[11px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Total HPP</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.hppBreakdown.map((item, i) => (
-                      <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
-                        <td className="px-4 py-3 font-bold text-[#1A1D1B]">{item.name}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-[#646A66]">{item.count}x</td>
-                        <td className="px-4 py-3 text-right font-extrabold text-[#e05a5a]">{formatRupiahFull(item.totalHpp)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-slate-50 sticky bottom-0 border-t border-slate-200">
-                    <tr>
-                      <td colSpan={2} className="px-4 py-3 text-right font-extrabold text-[#1A1D1B]">TOTAL HPP PRODUKSI</td>
-                      <td className="px-4 py-3 text-right font-extrabold text-[#e05a5a]">
-                        {formatRupiahFull(stats.hppBreakdown.reduce((acc, curr) => acc + curr.totalHpp, 0))}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+
+            {/* Tabel Pengeluaran Manual */}
+            <div>
+              <h4 className="text-[13px] font-extrabold text-[#1A1D1B] uppercase tracking-wider mb-3 flex items-center justify-between">
+                <span>Pengeluaran Manual</span>
+                <span className="text-[#e05a5a]">{formatRupiahFull(stats.totalPengeluaranManual)}</span>
+              </h4>
+              {stats.manualBreakdown.length === 0 ? (
+                <div className="py-10 text-center border border-slate-100 rounded-2xl bg-slate-50/50">
+                  <p className="text-sm font-semibold text-[#646A66]">Belum ada pengeluaran manual.</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 sticky top-0 z-10">
+                        <tr>
+                          <th className="text-left px-4 py-3 text-[10px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Kategori</th>
+                          <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Trx</th>
+                          <th className="text-right px-4 py-3 text-[10px] font-extrabold text-[#94a3b8] uppercase tracking-wider">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {stats.manualBreakdown.map((item, i) => (
+                          <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3 font-bold text-[#1A1D1B] text-[12px]">{item.name}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-[#646A66] text-[12px]">{item.count}x</td>
+                            <td className="px-4 py-3 text-right font-bold text-[#e05a5a] text-[12px]">{formatRupiahFull(item.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100 bg-red-50 p-4 rounded-xl">
+            <span className="text-[13px] font-extrabold text-[#1A1D1B] uppercase tracking-wider">Grand Total Pengeluaran (HPP + Manual)</span>
+            <span className="text-2xl font-black text-[#e05a5a]">{formatRupiahFull(stats.totalHpp + stats.totalPengeluaranManual)}</span>
+          </div>
         </div>
       </Modal>
 

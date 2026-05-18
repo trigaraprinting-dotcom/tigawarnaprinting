@@ -125,16 +125,19 @@
     margin: 3mm 2mm;
   }
 
-  /* Paksa background putih & teks hitam */
-  body {
+  /* Paksa background putih, teks hitam, dan reset layout flex/height yang menyebabkan infinite loop */
+  html, body, #root, .min-h-screen {
     background: white !important;
     margin: 0 !important;
     padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    display: block !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-
-  /* Tampilkan elemen screen-hidden-print-only */
+  
+  /* Tampilkan elemen screen-hidden-print-only (Main UI sudah di-hide via class print:hidden Tailwind) */
   .screen-hidden-print-only {
     display: block !important;
   }

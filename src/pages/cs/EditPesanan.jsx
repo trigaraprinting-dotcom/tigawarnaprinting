@@ -192,7 +192,13 @@ export const EditPesanan = () => {
 
       const totalPrice = Number(form.total_price);
       const costPerUnit = Number(selectedProd?.harga_asli || form.product_cost_per_unit || 0);
-      const profit = totalPrice - (costPerUnit * quantity);
+      let orderCost = 0;
+      if (luasVal > 0) {
+        orderCost = luasVal * costPerUnit * quantity;
+      } else {
+        orderCost = costPerUnit * quantity;
+      }
+      const profit = totalPrice - orderCost;
 
       await editOrder(id, {
         customer_name: form.customer_name,

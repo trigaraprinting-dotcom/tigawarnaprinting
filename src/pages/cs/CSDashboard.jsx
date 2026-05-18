@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useOrdersSnapshot } from '../../hooks/useOrders';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
+import { PrintInvoice } from '../../components/PrintInvoice';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, PlusCircle, Search, Filter, ChevronLeft, ChevronRight, LayoutDashboard, Clock, PlayCircle, CheckCircle2, Edit } from 'lucide-react';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { db } from '../../firebase/firebaseConfig';
+import { Eye, PlusCircle, Search, Filter, ChevronLeft, ChevronRight, LayoutDashboard, Clock, PlayCircle, CheckCircle2, Edit, Printer, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 const formatRupiah = (val) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
@@ -25,8 +28,29 @@ export const CSDashboard = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [orderToPrint, setOrderToPrint] = useState(null);
+  const [deleteOrderTarget, setDeleteOrderTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const executeDeleteOrder = async () => {
+    if (!deleteOrderTarget) return;
+    setDeleting(true);
+    try {
+      await deleteDoc(doc(db, 'orders', deleteOrderTarget.id));
+    } catch (err) {
+      alert("Gagal menghapus pesanan: " + err.message);
+    } finally {
+      setDeleting(false);
+      setDeleteOrderTarget(null);
+    }
+  };
 
   const displayName = user?.email?.split('@')[0] || 'CS Staff';
+
+  const handlePrint = (order) => {
+    setOrderToPrint(order);
+    setTimeout(() => window.print(), 100);
+  };
 
   // Derived statistics
   const totalDone        = orders.filter(o => o.status === 'done').length;
@@ -63,7 +87,8 @@ export const CSDashboard = () => {
   ];
 
   return (
-    <div className="w-full max-w-[1400px] mb-10 pb-20 md:pb-0 flex flex-col xl:flex-row gap-6 sm:gap-8 overflow-hidden">
+    <>
+      <div className="w-full max-w-[1400px] mb-10 pb-20 md:pb-0 flex flex-col xl:flex-row gap-6 sm:gap-8 overflow-hidden print:hidden">
       
       {/* ── KIRI: Main Content ── */}
       <div className="flex-1 min-w-0 flex flex-col gap-6 sm:gap-8 overflow-hidden">
@@ -241,12 +266,40 @@ export const CSDashboard = () => {
                         </td>
                         <td className="px-6 py-4"><div className="scale-90 origin-left"><StatusBadge status={order.status} /></div></td>
                         <td className="px-6 py-4">
-                          <button
-                            onClick={() => setSelectedOrder(order)}
-                            className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:border-[#607d6e] hover:text-[#607d6e] hover:bg-[#EAF4EF] transition-all"
-                          >
-                            <ChevronRight size={16} />
-                          </button>
+                          <div className="flex items-center gap-2 justify-end">
+                            {(order.status === 'pending' || order.status === 'awaiting_dp') && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteOrderTarget(order); }}
+                                className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:border-red-500 hover:text-red-500 hover:bg-red-50 transition-all"
+                                title="Hapus Pesanan"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                            {(order.status === 'pending' || order.status === 'awaiting_dp') && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); navigate(`/cs/pesanan/edit/${order.id}`); }}
+                                className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                                title="Edit Pesanan"
+                              >
+                                <Edit size={16} />
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handlePrint(order); }}
+                              className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:border-[#607d6e] hover:text-[#607d6e] hover:bg-[#EAF4EF] transition-all"
+                              title="Cetak Nota"
+                            >
+                              <Printer size={16} />
+                            </button>
+                            <button
+                              onClick={() => setSelectedOrder(order)}
+                              className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:border-[#607d6e] hover:text-[#607d6e] hover:bg-[#EAF4EF] transition-all"
+                              title="Lihat Detail"
+                            >
+                              <ChevronRight size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -399,20 +452,36 @@ export const CSDashboard = () => {
             )}
             
             <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end gap-2">
-               {(selectedOrder.status === 'pending' || selectedOrder.status === 'awaiting_dp') && (
-                 <button 
-                   onClick={() => navigate(`/cs/pesanan/edit/${selectedOrder.id}`)} 
-                   className="px-5 py-2.5 bg-blue-50 text-blue-600 font-bold rounded-xl text-sm hover:bg-blue-100 transition-colors flex items-center gap-2"
-                 >
-                   <Edit size={16} /> Edit Pesanan
-                 </button>
-               )}
+               <button 
+                 onClick={() => handlePrint(selectedOrder)}
+                 className="px-5 py-2.5 bg-slate-50 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-100 transition-colors flex items-center gap-2 border border-slate-200"
+               >
+                 <Printer size={16} /> Cetak Nota
+               </button>
+
                <button onClick={() => setSelectedOrder(null)} className="px-5 py-2.5 bg-slate-100 text-[#1A1D1B] font-bold rounded-xl text-sm hover:bg-slate-200 transition-colors">Tutup</button>
             </div>
           </div>
         )}
       </Modal>
 
-    </div>
+      {/* Confirmation Delete Order Modal */}
+      <Modal open={!!deleteOrderTarget} onClose={() => setDeleteOrderTarget(null)} title="Konfirmasi Hapus" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-[#646A66] font-medium leading-relaxed">
+            Apakah Anda yakin ingin menghapus pesanan <span className="font-bold text-[#1A1D1B]">"{deleteOrderTarget?.product_name}"</span> dari klien <span className="font-bold text-[#1A1D1B]">"{deleteOrderTarget?.customer_name}"</span>? Data yang dihapus tidak dapat dikembalikan.
+          </p>
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <button onClick={() => setDeleteOrderTarget(null)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-[#1A1D1B] font-bold rounded-xl transition-colors text-sm" disabled={deleting}>Batal</button>
+            <button onClick={executeDeleteOrder} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors text-sm shadow-lg shadow-red-500/25 flex items-center justify-center" disabled={deleting}>
+              {deleting ? 'Menghapus...' : 'Hapus Pesanan'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+      </div> {/* End of main dashboard div */}
+
+      <PrintInvoice orderToPrint={orderToPrint} displayName={displayName} />
+    </>
   );
 };
