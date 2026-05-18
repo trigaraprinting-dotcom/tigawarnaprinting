@@ -30,8 +30,8 @@ export const PrintInvoice = ({ orderToPrint, displayName }) => {
             ['Invoice', ('INV-' + (orderToPrint.id?.slice(-6)||'')).toUpperCase()],
             ['Kasir',   (displayName||'Kasir/CS').toUpperCase()],
           ].map(([label,val])=>(
-            <div key={label} style={{display:'grid',gridTemplateColumns:'65px 1fr',marginBottom:'1px'}}>
-              <span>{label}</span><span>: {val}</span>
+            <div key={label} style={{display:'grid',gridTemplateColumns:'56px 8px 1fr',marginBottom:'1px'}}>
+              <span>{label}</span><span>:</span><span style={{wordBreak: 'break-all'}}>{val}</span>
             </div>
           ))}
         </div>
