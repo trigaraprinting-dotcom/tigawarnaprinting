@@ -15,7 +15,7 @@ const PayRow = ({ label, val, bold }) => (
   </div>
 );
 
-export const PrintInvoice = ({ orderToPrint, displayName }) => {
+export const PrintInvoice = React.forwardRef(({ orderToPrint, displayName }, ref) => {
   if (!orderToPrint) return null;
 
   const d = orderToPrint.created_at?.toDate
@@ -44,11 +44,11 @@ export const PrintInvoice = ({ orderToPrint, displayName }) => {
 
   return (
     <div className="screen-hidden-print-only">
-      <div className="thermal-receipt" style={S.wrap}>
+      <div className="thermal-receipt" style={S.wrap} ref={ref}>
 
         {/* HEADER */}
         <div style={{ ...S.center, marginBottom: '4px' }}>
-          <div style={{ fontWeight: '900', fontSize: '11pt', letterSpacing: '1px' }}>TIGA WARNA ADV</div>
+          <div style={{ fontWeight: '600', fontSize: '9pt', letterSpacing: '1px' }}>TIGA WARNA ADV</div>
           <div style={{ ...S.tiny, lineHeight: '1.3', marginTop: '1px' }}>
             Jl. Sultan Agung No. 52, Cokoleo,<br />Kepanjen, Kab. Malang Jawa Timur
           </div>
@@ -170,4 +170,6 @@ export const PrintInvoice = ({ orderToPrint, displayName }) => {
       </div>
     </div>
   );
-};
+});
+
+PrintInvoice.displayName = 'PrintInvoice';

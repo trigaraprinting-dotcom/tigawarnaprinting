@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useReactToPrint } from 'react-to-print';
 import { useOrdersSnapshot } from '../../hooks/useOrders';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
@@ -47,9 +48,23 @@ export const CSDashboard = () => {
 
   const displayName = user?.email?.split('@')[0] || 'CS Staff';
 
+  const printRef = useRef(null);
+  const handleReactPrint = useReactToPrint({
+    contentRef: printRef,
+    pageStyle: `
+      @page {
+        size: 58mm auto;
+        margin: 0mm;
+      }
+      body {
+        margin: 0px;
+      }
+    `,
+  });
+
   const handlePrint = (order) => {
     setOrderToPrint(order);
-    setTimeout(() => window.print(), 100);
+    setTimeout(() => handleReactPrint(), 100);
   };
 
   // Derived statistics
@@ -481,7 +496,7 @@ export const CSDashboard = () => {
       </Modal>
       </div> {/* End of main dashboard div */}
 
-      <PrintInvoice orderToPrint={orderToPrint} displayName={displayName} />
+      <PrintInvoice ref={printRef} orderToPrint={orderToPrint} displayName={displayName} />
     </>
   );
 };

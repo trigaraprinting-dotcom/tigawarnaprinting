@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useReactToPrint } from 'react-to-print';
 import { useOrdersSnapshot, useOrderActions } from '../../hooks/useOrders';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Modal } from '../../components/Modal';
@@ -41,6 +42,20 @@ export const KasirDashboard = () => {
   const [errorMsg, setErrorMsg] = useState('');
 
   const displayName = user?.email?.split('@')[0] || 'Kasir';
+
+  const printRef = useRef(null);
+  const handleReactPrint = useReactToPrint({
+    contentRef: printRef,
+    pageStyle: `
+      @page {
+        size: 58mm auto;
+        margin: 0mm;
+      }
+      body {
+        margin: 0px;
+      }
+    `,
+  });
 
   // Order grouping
   const awaitingDp = orders.filter(o => o.status === 'awaiting_dp');
@@ -144,7 +159,7 @@ export const KasirDashboard = () => {
 
   const handlePrint = (order) => {
     setOrderToPrint(order);
-    setTimeout(() => window.print(), 100);
+    setTimeout(() => handleReactPrint(), 100);
   };
 
   return (
@@ -709,7 +724,7 @@ export const KasirDashboard = () => {
       </div>
 
       {/* ── Invoice Print View (Thermal Receipt 80mm) ── */}
-      <PrintInvoice orderToPrint={orderToPrint} displayName={displayName} />
+      <PrintInvoice ref={printRef} orderToPrint={orderToPrint} displayName={displayName} />
     </>
   );
 };
